@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🤿 Dive Log — 動画を追加</title>
+  <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="./index.html" class="logo">🤿 Dive Log</a>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <h2 class="card-title">🎬 YouTube動画を追加</h2>
+      <p class="card-sub">ダイブを選んでYouTubeのURLを貼り付けてください</p>
+
+      <div id="alert-area"></div>
+
+      <div class="form">
+        <div class="field">
+          <label for="dive-select">ダイブを選択</label>
+          <select id="dive-select">
+            <option value="">— 読み込み中... —</option>
+          </select>
+        </div>
+
+        <div id="existing-area" style="display:none">
+          <div class="field">
+            <label>登録済みURL</label>
+            <div id="existing-list" style="font-size:.85rem;color:var(--sub);line-height:1.8;word-break:break-all;"></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="url">YouTube URL</label>
+          <input type="url" id="url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off">
+        </div>
+
+        <button type="button" class="btn btn-primary btn-full" id="btn-save">追加する</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:8px;">
+      <a href="./index.html" class="btn btn-secondary btn-full">🏠 記録メニューへ</a>
+    </div>
+  </main>
+
+  <script type="module">
+    import { requireAuth } from "../js/supabaseClient.js";
+    import { listRecentDives, appendVideoLink } from "../js/api.js";
+    import { esc, showAlert } from "../js/ui.js";
+
+    await requireAuth();
+
+    const select = document.getElementById("dive-select");
+    const dives  = await listRecentDives();
+
+    select.innerHTML = '<option value="">— ダイブを選んでください —</option>';
+    dives.forEach(d => {
+      const opt = document.createElement("option");
+      const links = (d.video_links || "").split("\n").filter(Boolean);
+      opt.value = d.id;
+      opt.dataset.existing = links.join("\n");
+      opt.textContent = `${d.date} ${d.location} #${d.dive_number ?? "?"}${d.point ? " " + d.point : ""}`
+        + (links.length ? ` 🎬×${links.length}` : "");
+      select.appendChild(opt);
+    });
+
+    select.addEventListener("change", function () {
+      const raw  = (this.options[this.selectedIndex]?.dataset.existing || "").trim();
+      const area = document.getElementById("existing-area");
+      const list = document.getElementById("existing-list");
+      if (raw) {
+        list.innerHTML = raw.split("\n").map(u =>
+          `<a href="${esc(u)}" target="_blank" rel="noopener" style="display:block;color:var(--accent)">${esc(u)}</a>`
+        ).join("");
+        area.style.display = "";
+      } else {
+        area.style.display = "none";
+      }
+    });
+
+    document.getElementById("btn-save").addEventListener("click", async () => {
+      const diveId = select.value;
+      const url    = document.getElementById("url").value.trim();
+      const btn    = document.getElementById("btn-save");
+
+      if (!diveId) { showAlert("ダイブを選択してください", "error"); return; }
+      if (!url)    { showAlert("URLを入力してください", "error"); return; }
+
+      btn.disabled = true;
+      btn.textContent = "⏳ 保存中...";
+      try {
+        await appendVideoLink(diveId, url);
+        showAlert("✅ 追加しました！", "success");
+        document.getElementById("url").value = "";
+        const opt  = select.options[select.selectedIndex];
+        const prev = (opt.dataset.existing || "").trim();
+        opt.dataset.existing = prev ? prev + "\n" + url : url;
+        const count = opt.dataset.existing.split("\n").filter(Boolean).length;
+        opt.textContent = opt.textContent.replace(/ 🎬×\d+$/, "") + " 🎬×" + count;
+        select.dispatchEvent(new Event("change"));
+      } catch (e) {
+        showAlert("エラー: " + e.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "追加する";
+      }
+    });
+  </script>
+</body>
+</html>

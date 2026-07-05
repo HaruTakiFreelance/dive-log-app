@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🤿 Dive Log — その日の総評</title>
+  <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="./index.html" class="logo">🤿 Dive Log</a>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <h2 class="card-title">📝 その日の総評を書く</h2>
+      <p class="card-sub">セッションを選んで、その日のダイビング全体の総評を入力してください</p>
+
+      <div id="alert-area"></div>
+
+      <div class="form">
+        <div class="field">
+          <label for="session-select">セッションを選択</label>
+          <select id="session-select">
+            <option value="">— 読み込み中... —</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="text">総評</label>
+          <textarea id="text" rows="6" placeholder="その日のダイビング全体を振り返って..."></textarea>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-full" id="btn-save">保存する</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:8px;">
+      <a href="./index.html" class="btn btn-secondary btn-full">🏠 記録メニューへ</a>
+    </div>
+  </main>
+
+  <script type="module">
+    import { requireAuth } from "../js/supabaseClient.js";
+    import { listDives, listReviews, upsertReview } from "../js/api.js";
+    import { showAlert } from "../js/ui.js";
+
+    const user = await requireAuth();
+
+    // セッション一覧 = ダイブを (date, location) でグループ化して新しい順
+    const [dives, reviews] = await Promise.all([listDives(), listReviews()]);
+    const reviewMap = new Map(reviews.map(r => [`${r.date}|${r.location}`, r.text]));
+
+    const sessions = [];
+    const seen = new Map();
+    for (const d of dives) {
+      const key = `${d.date}|${d.location}`;
+      if (!seen.has(key)) { seen.set(key, { date: d.date, location: d.location, count: 0 }); sessions.push(seen.get(key)); }
+      seen.get(key).count++;
+    }
+    sessions.reverse();
+
+    const select = document.getElementById("session-select");
+    select.innerHTML = '<option value="">— セッションを選んでください —</option>';
+    sessions.forEach(s => {
+      const key = `${s.date}|${s.location}`;
+      const existing = reviewMap.get(key) || "";
+      const opt = document.createElement("option");
+      opt.value = key;
+      opt.dataset.existing = existing;
+      opt.textContent = `${s.date} ${s.location}（${s.count}本）` + (existing ? " ✅記入済" : "");
+      select.appendChild(opt);
+    });
+
+    select.addEventListener("change", function () {
+      document.getElementById("text").value =
+        this.options[this.selectedIndex]?.dataset.existing || "";
+    });
+
+    document.getElementById("btn-save").addEventListener("click", async () => {
+      const key  = select.value;
+      const text = document.getElementById("text").value;
+      const btn  = document.getElementById("btn-save");
+
+      if (!key) { showAlert("セッションを選択してください", "error"); return; }
+
+      const [date, ...rest] = key.split("|");
+      const location = rest.join("|");
+
+      btn.disabled = true;
+      btn.textContent = "⏳ 保存中...";
+      try {
+        await upsertReview(user.id, date, location, text.trim());
+        showAlert("✅ 保存しました！", "success");
+        const opt = select.options[select.selectedIndex];
+        opt.dataset.existing = text.trim();
+        opt.textContent = opt.textContent.replace(/\s*✅記入済$/, "") + (text.trim() ? " ✅記入済" : "");
+      } catch (e) {
+        showAlert("エラー: " + e.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "保存する";
+      }
+    });
+  </script>
+</body>
+</html>

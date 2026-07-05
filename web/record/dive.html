@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🤿 Dive Log — ダイブ記録</title>
+  <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="./index.html" class="logo">🤿 Dive Log</a>
+    <span class="session-info" id="session-info"></span>
+  </header>
+
+  <main class="container">
+    <div id="alert-area"></div>
+
+    <!-- Step 1: 共通情報 -->
+    <div class="card" id="setup-card">
+      <h2 class="card-title">📋 今日の共通情報</h2>
+      <p class="card-sub">1回入力すれば、複数ダイブに引き継がれます</p>
+      <a href="./index.html" style="font-size:.85rem; color:var(--sub); text-decoration:none;">← 記録メニューに戻る</a>
+
+      <form class="form" id="setup-form" style="margin-top:12px;">
+        <div class="field">
+          <label>日付</label>
+          <input type="date" id="s-date" required>
+        </div>
+        <div class="field">
+          <label>場所</label>
+          <input type="text" id="s-location" placeholder="例: 大瀬崎" required autocomplete="off">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>今日の1本目は通算何本目？</label>
+            <input type="number" id="s-number" min="1" required>
+          </div>
+          <div class="field">
+            <label>ウェイト (kg)</label>
+            <input type="number" id="s-weight" step="0.5" min="0" placeholder="例: 4.5" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>バディ（任意）</label>
+          <input type="text" id="s-buddy" placeholder="例: 田中さん" autocomplete="off">
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">ダイブ入力へ →</button>
+      </form>
+    </div>
+
+    <!-- Step 2: ダイブ入力 -->
+    <div class="card" id="dive-card" hidden>
+      <h2 class="card-title" id="dive-title">🌊 第?本目</h2>
+      <p class="card-sub" id="dive-sub"></p>
+
+      <form class="form" id="dive-form">
+        <div class="field">
+          <label>ポイント</label>
+          <input type="text" id="d-point" placeholder="例: 湾内" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>費用 (円)</label>
+          <input type="number" id="d-cost" min="0" placeholder="例: 9000">
+        </div>
+
+        <div class="field">
+          <label>見れた魚</label>
+          <div class="fish-widget">
+            <div class="fish-chips" id="fish-chips"></div>
+            <input type="text" id="fish-input" placeholder="魚名を入力して検索..."
+                   autocomplete="off" autocorrect="off" spellcheck="false">
+            <div class="fish-dropdown" id="fish-dropdown" hidden></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>コメント・メモ</label>
+          <textarea id="d-comment" rows="3" placeholder="透明度よかった、ウミウシ多め、など自由に"></textarea>
+        </div>
+
+        <div class="field">
+          <label>動画リンク（複数の場合は改行区切り）</label>
+          <textarea id="d-videos" rows="2" placeholder="https://youtube.com/..."></textarea>
+        </div>
+
+        <div class="btn-group">
+          <button type="button" class="btn btn-secondary" id="btn-add-more">+ もう1本追加</button>
+          <button type="button" class="btn btn-primary" id="btn-done">保存して終了</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- 完了 -->
+    <div class="card card-center" id="done-card" hidden>
+      <div class="complete-icon">✅</div>
+      <h2 class="card-title">保存しました！</h2>
+      <p class="card-sub" id="done-msg"></p>
+      <div class="btn-group-col">
+        <a href="../index.html" class="btn btn-primary btn-full">📖 ログブックを見る</a>
+        <a href="./index.html" class="btn btn-secondary btn-full">🏠 記録メニューへ</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- 新規魚 一括確認モーダル -->
+  <div class="modal-overlay" id="bulk-overlay" hidden>
+    <div class="modal modal-wide">
+      <h3 class="modal-title">🐟 新しい魚を図鑑に登録します</h3>
+      <p class="modal-sub">情報を入力・確認してから保存してください（あとで図鑑から編集もできます）</p>
+      <div id="bulk-fish-list"></div>
+      <div id="bulk-error" class="modal-error" hidden></div>
+      <div class="btn-group" style="margin-top:16px">
+        <button class="btn btn-secondary" id="bulk-cancel">キャンセル</button>
+        <button class="btn btn-primary"   id="bulk-confirm">登録して保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { requireAuth } from "../js/supabaseClient.js";
+    import { getLastDive, addDive, searchFish, addFish } from "../js/api.js";
+    import { getWeatherAndMarine } from "../js/weather.js";
+    import { esc, showAlert, today } from "../js/ui.js";
+
+    const user = await requireAuth();
+
+    // ── セッション状態（共通情報 + 現在の本数）────────────
+    let sess = null;   // { date, location, weight, buddy, nextNumber, savedCount }
+
+    // 前回値でプリフィル
+    document.getElementById("s-date").value = today();
+    try {
+      const last = await getLastDive();
+      if (last) {
+        document.getElementById("s-location").value = last.location ?? "";
+        document.getElementById("s-number").value   = (last.dive_number ?? 0) + 1;
+        document.getElementById("s-weight").value   = last.weight ?? "";
+        document.getElementById("s-buddy").value    = last.buddy ?? "";
+      } else {
+        document.getElementById("s-number").value = 1;
+      }
+    } catch (e) {
+      showAlert("前回値の取得に失敗: " + e.message, "error");
+    }
+
+    document.getElementById("setup-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      sess = {
+        date:       document.getElementById("s-date").value,
+        location:   document.getElementById("s-location").value.trim(),
+        weight:     parseFloat(document.getElementById("s-weight").value),
+        buddy:      document.getElementById("s-buddy").value.trim(),
+        nextNumber: parseInt(document.getElementById("s-number").value, 10),
+        savedCount: 0,
+      };
+      document.getElementById("setup-card").hidden = true;
+      showDiveForm();
+    });
+
+    function showDiveForm() {
+      document.getElementById("dive-card").hidden = false;
+      document.getElementById("dive-title").textContent = `🌊 第${sess.nextNumber}本目`;
+      document.getElementById("dive-sub").textContent   = `${sess.location} · ${sess.date}`;
+      document.getElementById("session-info").textContent = `${sess.date} · ${sess.location}`;
+      document.getElementById("dive-form").querySelectorAll("input, textarea").forEach(el => {
+        if (el.id !== "fish-input") el.value = "";
+      });
+      dbFish.clear(); pendingFish.clear(); renderChips();
+    }
+
+    // ── 魚チップ ──────────────────────────────────────
+    const dbFish      = new Map();  // fishId -> name（図鑑登録済み）
+    const pendingFish = new Map();  // 'new_N' -> name（未登録）
+    let   tempCounter = 0;
+
+    function renderChips() {
+      const c = document.getElementById("fish-chips");
+      c.innerHTML = "";
+      dbFish.forEach((name, id)      => c.appendChild(makeChip(name, id, false)));
+      pendingFish.forEach((name, id) => c.appendChild(makeChip(name, id, true)));
+    }
+
+    function makeChip(name, id, isPending) {
+      const chip = document.createElement("span");
+      chip.className = `fish-chip${isPending ? " fish-chip-new" : ""}`;
+      chip.innerHTML = `${isPending ? "🆕 " : ""}${esc(name)} <button type="button">×</button>`;
+      chip.querySelector("button").addEventListener("click", () => {
+        (isPending ? pendingFish : dbFish).delete(id);
+        renderChips();
+      });
+      return chip;
+    }
+
+    const fishInput = document.getElementById("fish-input");
+    const dropdown  = document.getElementById("fish-dropdown");
+    let   timer     = null;
+
+    fishInput.addEventListener("input", () => {
+      clearTimeout(timer);
+      const q = fishInput.value.trim();
+      if (!q) { dropdown.hidden = true; return; }
+      timer = setTimeout(() => fetchAndRender(q), 300);
+    });
+
+    async function fetchAndRender(q) {
+      let list = [];
+      try { list = await searchFish(q); } catch { /* 検索失敗は新規追加のみ表示 */ }
+      dropdown.innerHTML = "";
+      dropdown.hidden    = false;
+
+      list.forEach(fish => {
+        const item = document.createElement("div");
+        item.className   = "dropdown-item";
+        item.textContent = fish.name;
+        item.addEventListener("click", () => {
+          dbFish.set(fish.id, fish.name);
+          renderChips();
+          fishInput.value = "";
+          dropdown.hidden = true;
+        });
+        dropdown.appendChild(item);
+      });
+
+      const addItem = document.createElement("div");
+      addItem.className   = "dropdown-item dropdown-add";
+      addItem.textContent = `「${q}」を新規追加（後で登録）`;
+      addItem.addEventListener("click", () => {
+        pendingFish.set(`new_${tempCounter++}`, q);
+        renderChips();
+        fishInput.value = "";
+        dropdown.hidden = true;
+      });
+      dropdown.appendChild(addItem);
+    }
+
+    document.addEventListener("click", e => {
+      if (!e.target.closest(".fish-widget")) dropdown.hidden = true;
+    });
+
+    // ── 保存フロー ────────────────────────────────────
+    let pendingAction = "done";
+
+    document.getElementById("btn-add-more").addEventListener("click", () => handleSave("add_more"));
+    document.getElementById("btn-done").addEventListener("click",     () => handleSave("done"));
+
+    function handleSave(action) {
+      pendingAction = action;
+      if (pendingFish.size === 0) { saveDive(action); return; }
+      openBulkModal();
+    }
+
+    async function saveDive(action) {
+      const btnMore = document.getElementById("btn-add-more");
+      const btnDone = document.getElementById("btn-done");
+      btnMore.disabled = btnDone.disabled = true;
+      btnDone.textContent = "⏳ 保存中...";
+
+      try {
+        // 天気・海況を取得（失敗しても記録は続行）
+        const weather = await getWeatherAndMarine(sess.location, sess.date, null, null);
+
+        await addDive(user.id, {
+          date:        sess.date,
+          dive_number: sess.nextNumber,
+          location:    sess.location,
+          point:       document.getElementById("d-point").value.trim() || null,
+          weight:      sess.weight,
+          buddy:       sess.buddy || null,
+          cost:        parseFloat(document.getElementById("d-cost").value) || null,
+          comment:     document.getElementById("d-comment").value.trim() || null,
+          video_links: document.getElementById("d-videos").value.trim() || null,
+          weather:     weather.weather ?? null,
+          wave_height: weather.wave_height ?? null,
+          water_temp:  weather.water_temp ?? null,
+        }, [...dbFish.keys()]);
+
+        sess.savedCount++;
+        sess.nextNumber++;
+
+        if (action === "add_more") {
+          showAlert(`第${sess.nextNumber - 1}本目を保存しました`, "success");
+          showDiveForm();
+        } else {
+          document.getElementById("dive-card").hidden = true;
+          document.getElementById("done-card").hidden = false;
+          document.getElementById("done-msg").textContent =
+            `${sess.date} ${sess.location} — ${sess.savedCount}本を記録しました`;
+        }
+      } catch (e) {
+        showAlert("保存に失敗しました: " + e.message, "error");
+      } finally {
+        btnMore.disabled = btnDone.disabled = false;
+        btnDone.textContent = "保存して終了";
+      }
+    }
+
+    // ── 新規魚モーダル ────────────────────────────────
+    function closeBulkModal() { document.getElementById("bulk-overlay").hidden = true; }
+    document.getElementById("bulk-cancel").addEventListener("click", closeBulkModal);
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeBulkModal(); });
+    document.getElementById("bulk-overlay").addEventListener("click", e => {
+      if (e.target === document.getElementById("bulk-overlay")) closeBulkModal();
+    });
+
+    function openBulkModal() {
+      const overlay = document.getElementById("bulk-overlay");
+      const list    = document.getElementById("bulk-fish-list");
+      overlay.hidden = false;
+      list.innerHTML = "";
+      document.getElementById("bulk-error").hidden = true;
+      document.getElementById("bulk-confirm").disabled = false;
+      pendingFish.forEach((name, tempId) => list.appendChild(buildFishItem(tempId, name)));
+    }
+
+    function buildFishItem(tempId, name) {
+      const div = document.createElement("div");
+      div.className  = "bulk-fish-item";
+      div.dataset.id = tempId;
+      div.innerHTML = `
+        <div class="bulk-fish-header"><span class="bulk-fish-name">${esc(name)}</span></div>
+        <div class="field-row">
+          <div class="field"><label>英名</label><input type="text" id="en-${tempId}" placeholder="—"></div>
+          <div class="field"><label>学名</label><input type="text" id="sci-${tempId}" placeholder="—"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>分類</label>
+            <select id="cat-${tempId}">
+              <option>魚類</option><option>甲殻類</option><option>軟体動物</option>
+              <option>棘皮動物</option><option>爬虫類</option><option>哺乳類</option><option>その他</option>
+            </select>
+          </div>
+          <div class="field"><label>サムネイルURL（任意）</label><input type="url" id="thumb-${tempId}" placeholder="https://..."></div>
+        </div>
+        <div class="field"><label>メモ</label><textarea id="memo-${tempId}" rows="2"></textarea></div>
+      `;
+      return div;
+    }
+
+    document.getElementById("bulk-confirm").addEventListener("click", async () => {
+      const btn   = document.getElementById("bulk-confirm");
+      const errEl = document.getElementById("bulk-error");
+      btn.disabled = true;
+      btn.textContent = "登録中...";
+      errEl.hidden = true;
+
+      try {
+        for (const [tempId, name] of pendingFish) {
+          const id = await addFish(user.id, {
+            name,
+            english_name:    document.getElementById(`en-${tempId}`).value.trim() || null,
+            scientific_name: document.getElementById(`sci-${tempId}`).value.trim() || null,
+            category:        document.getElementById(`cat-${tempId}`).value,
+            memo:            document.getElementById(`memo-${tempId}`).value.trim() || null,
+            thumbnail_url:   document.getElementById(`thumb-${tempId}`).value.trim() || null,
+            first_seen:      sess.date,
+          });
+          dbFish.set(id, name);
+        }
+        pendingFish.clear();
+        closeBulkModal();
+        saveDive(pendingAction);
+      } catch (e) {
+        errEl.textContent = "登録エラー: " + e.message;
+        errEl.hidden = false;
+        btn.disabled = false;
+        btn.textContent = "登録して保存";
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🤿 Dive Log — 見れた魚を追加</title>
+  <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="./index.html" class="logo">🤿 Dive Log</a>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <h2 class="card-title">🐠 見れた魚を後から追加</h2>
+      <p class="card-sub">ダイブを選んで魚を検索・追加してください</p>
+
+      <div id="alert-area"></div>
+
+      <div class="form">
+        <div class="field">
+          <label for="dive-select">ダイブを選択</label>
+          <select id="dive-select">
+            <option value="">— 読み込み中... —</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>追加する魚</label>
+          <div class="fish-widget">
+            <div class="fish-chips" id="fish-chips"></div>
+            <input type="text" id="fish-input" placeholder="魚名を入力して検索..."
+                   autocomplete="off" autocorrect="off" spellcheck="false">
+            <div class="fish-dropdown" id="fish-dropdown" hidden></div>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary btn-full" id="btn-save">追加する</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:8px;">
+      <a href="./index.html" class="btn btn-secondary btn-full">🏠 記録メニューへ</a>
+    </div>
+  </main>
+
+  <script type="module">
+    import { requireAuth } from "../js/supabaseClient.js";
+    import { listRecentDives, searchFish, addFish, appendFishToDive } from "../js/api.js";
+    import { esc, showAlert } from "../js/ui.js";
+
+    const user = await requireAuth();
+
+    const select = document.getElementById("dive-select");
+    const dives  = await listRecentDives();
+    select.innerHTML = '<option value="">— ダイブを選んでください —</option>';
+    dives.forEach(d => {
+      const opt = document.createElement("option");
+      opt.value = d.id;
+      opt.dataset.date = d.date;
+      const fishCount = d.dive_fish?.length ?? 0;
+      opt.textContent = `${d.date} ${d.location} #${d.dive_number ?? "?"}${d.point ? " " + d.point : ""}`
+        + (fishCount ? ` 🐠×${fishCount}` : "");
+      select.appendChild(opt);
+    });
+
+    // ── 魚チップ（登録済み選択 + 新規はその場で登録）─────
+    const chosen = new Map();   // fishId -> name
+    let   tempCounter = 0;
+    const pending = new Map();  // 'new_N' -> name
+
+    function renderChips() {
+      const c = document.getElementById("fish-chips");
+      c.innerHTML = "";
+      chosen.forEach((name, id)  => c.appendChild(makeChip(name, id, false)));
+      pending.forEach((name, id) => c.appendChild(makeChip(name, id, true)));
+    }
+    function makeChip(name, id, isPending) {
+      const chip = document.createElement("span");
+      chip.className = `fish-chip${isPending ? " fish-chip-new" : ""}`;
+      chip.innerHTML = `${isPending ? "🆕 " : ""}${esc(name)} <button type="button">×</button>`;
+      chip.querySelector("button").addEventListener("click", () => {
+        (isPending ? pending : chosen).delete(id);
+        renderChips();
+      });
+      return chip;
+    }
+
+    const input    = document.getElementById("fish-input");
+    const dropdown = document.getElementById("fish-dropdown");
+    let   timer;
+
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      const q = input.value.trim();
+      if (!q) { dropdown.hidden = true; return; }
+      timer = setTimeout(() => fetchFish(q), 250);
+    });
+    input.addEventListener("keydown", e => { if (e.key === "Escape") dropdown.hidden = true; });
+    document.addEventListener("click", e => {
+      if (!e.target.closest(".fish-widget")) dropdown.hidden = true;
+    });
+
+    async function fetchFish(q) {
+      let list = [];
+      try { list = await searchFish(q); } catch { /* 新規のみ表示 */ }
+      dropdown.innerHTML = "";
+      list.forEach(f => {
+        const item = document.createElement("div");
+        item.className   = "dropdown-item";
+        item.textContent = f.name;
+        item.onclick = () => {
+          if (!chosen.has(f.id)) { chosen.set(f.id, f.name); renderChips(); }
+          input.value = "";
+          dropdown.hidden = true;
+        };
+        dropdown.appendChild(item);
+      });
+      const addItem = document.createElement("div");
+      addItem.className   = "dropdown-item dropdown-add";
+      addItem.textContent = `「${q}」を新しく追加`;
+      addItem.onclick = () => {
+        pending.set(`new_${tempCounter++}`, q);
+        renderChips();
+        input.value = "";
+        dropdown.hidden = true;
+      };
+      dropdown.appendChild(addItem);
+      dropdown.hidden = false;
+    }
+
+    // ── 保存 ──────────────────────────────────────────
+    document.getElementById("btn-save").addEventListener("click", async () => {
+      const diveId = select.value;
+      const btn    = document.getElementById("btn-save");
+
+      if (!diveId) { showAlert("ダイブを選択してください", "error"); return; }
+      if (!chosen.size && !pending.size) { showAlert("魚を1種以上選んでください", "error"); return; }
+
+      btn.disabled = true;
+      btn.textContent = "⏳ 保存中...";
+      try {
+        const diveDate = select.options[select.selectedIndex].dataset.date;
+        // 未登録の魚は図鑑に登録してIDを得る
+        for (const [key, name] of pending) {
+          const id = await addFish(user.id, { name, category: "魚類", first_seen: diveDate });
+          chosen.set(id, name);
+          pending.delete(key);
+        }
+        await appendFishToDive(user.id, diveId, [...chosen.keys()]);
+
+        showAlert(`✅ ${chosen.size}種を追加しました！`, "success");
+        const opt = select.options[select.selectedIndex];
+        const m   = opt.textContent.match(/🐠×(\d+)/);
+        const cur = m ? parseInt(m[1], 10) : 0;
+        opt.textContent = opt.textContent.replace(/\s*🐠×\d+/, "") + ` 🐠×${cur + chosen.size}`;
+        chosen.clear();
+        renderChips();
+      } catch (e) {
+        showAlert("エラー: " + e.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "追加する";
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🤿 Dive Log — 記録</title>
+  <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="../index.html" class="logo">🤿 Dive Log</a>
+    <button id="btn-logout" style="background:none;border:none;color:#fff;opacity:.85;font-size:.8rem;cursor:pointer;">ログアウト</button>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <h2 class="card-title" style="text-align:center;">🌊 記録する</h2>
+      <p class="card-sub" style="text-align:center; margin-bottom: 24px;">保存するとすぐログブックに反映されます</p>
+
+      <div class="flow">
+        <div class="flow-step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">🤿 ダイビングを記録する</div>
+            <div class="step-desc">潜ったダイブの情報・見た魚を入力</div>
+            <a href="./dive.html" class="btn btn-primary btn-full" style="margin-top:10px;">ダイビングを記録 →</a>
+            <a href="./csv.html" class="btn btn-secondary btn-full" style="margin-top:6px;">📥 ダイコンCSVで自動入力 →</a>
+          </div>
+        </div>
+
+        <div class="flow-arrow">↓</div>
+
+        <div class="flow-step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">📷 あとから追加する</div>
+            <div class="step-desc">写真・動画・魚・総評はいつでも追記できます</div>
+            <a href="./photo.html" class="btn btn-secondary btn-full" style="margin-top:10px;">写真をアップロード →</a>
+            <a href="./video.html" class="btn btn-secondary btn-full" style="margin-top:6px;">🎬 YouTube動画を追加 →</a>
+            <a href="./fish.html" class="btn btn-secondary btn-full" style="margin-top:6px;">🐠 見れた魚を追加 →</a>
+            <a href="./review.html" class="btn btn-secondary btn-full" style="margin-top:6px;">📝 その日の総評を書く →</a>
+          </div>
+        </div>
+
+        <div class="flow-arrow">↓</div>
+
+        <div class="flow-step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">📖 ログブックを見る</div>
+            <div class="step-desc">記録は保存した瞬間から反映されています</div>
+            <a href="../index.html" class="btn btn-secondary btn-full" style="margin-top:10px;">ログブックを開く 🔗</a>
+            <a href="../admin/thumbs.html" class="btn btn-secondary btn-full" style="margin-top:6px;">🖼 魚サムネイルを整備する →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <style>
+    .flow { display: flex; flex-direction: column; gap: 0; }
+    .flow-step {
+      display: flex; gap: 14px; align-items: flex-start;
+      background: var(--bg); border: 1px solid #e5e5e5;
+      border-radius: 10px; padding: 16px;
+    }
+    .step-num {
+      width: 32px; height: 32px; background: var(--primary); color: #fff;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: .9rem; font-weight: 700; flex-shrink: 0; margin-top: 2px;
+    }
+    .step-body { flex: 1; }
+    .step-title { font-size: 1rem; font-weight: 700; margin-bottom: 2px; }
+    .step-desc  { font-size: .82rem; color: var(--sub); }
+    .flow-arrow { text-align: center; font-size: 1.3rem; color: var(--sub); margin: 4px 0; }
+  </style>
+
+  <script type="module">
+    import { requireAuth, signOut } from "../js/supabaseClient.js";
+    await requireAuth();
+    document.getElementById("btn-logout").addEventListener("click", signOut);
+  </script>
+</body>
+</html>

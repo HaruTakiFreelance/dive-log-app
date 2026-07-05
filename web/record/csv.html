@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🤿 Dive Log — ダイコンCSVインポート</title>
+  <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="./index.html" class="logo">🤿 Dive Log</a>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <a href="./index.html" style="font-size:.85rem; color:var(--sub); text-decoration:none;">← 記録メニューに戻る</a>
+      <h2 class="card-title" style="margin-top:12px;">📥 ダイコンCSVインポート</h2>
+      <p class="card-sub">最大水深・潜水時間・水温・深度グラフを自動入力します</p>
+
+      <div style="background:#f0f4f8; border-radius:8px; padding:14px 16px; margin-bottom:20px; font-size:.82rem; color:#555;">
+        <strong>照合ロジック：</strong> 同じ日付のCSV行と「Max Depth未入力」のダイブを、それぞれの出現順（本数順）で1件ずつ突き合わせます。<br>
+        更新前に対応表を確認できます。未入力エントリがない日のデータはスキップされます（新規作成は行いません）。
+      </div>
+
+      <div id="alert-area"></div>
+
+      <div class="form" id="select-step">
+        <div class="field">
+          <label>CSVファイル</label>
+          <input type="file" id="csv-file" accept=".csv,text/csv">
+        </div>
+        <button type="button" class="btn btn-primary btn-full" id="btn-preview">照合内容を確認する →</button>
+      </div>
+
+      <!-- 確認プレビュー -->
+      <div id="preview-step" hidden>
+        <h3 style="font-size:1rem; margin-bottom:10px;">照合プレビュー</h3>
+        <div id="plan-list"></div>
+        <div class="btn-group" style="margin-top:16px;">
+          <button type="button" class="btn btn-secondary" id="btn-back">← やり直す</button>
+          <button type="button" class="btn btn-primary" id="btn-apply">この内容で更新する</button>
+        </div>
+      </div>
+
+      <!-- 結果 -->
+      <div id="result-step" hidden>
+        <div id="result-summary" style="margin-bottom:12px;"></div>
+        <a href="../index.html" class="btn btn-primary btn-full">📖 ログブックを見る</a>
+        <a href="./index.html" class="btn btn-secondary btn-full" style="margin-top:6px;">🏠 記録メニューへ</a>
+      </div>
+    </div>
+  </main>
+
+  <style>
+    .plan-item {
+      border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 12px 14px; margin-bottom: 10px; font-size: .85rem;
+    }
+    .plan-item.ok    { border-left: 4px solid #38a169; }
+    .plan-item.skip  { border-left: 4px solid #e53e3e; opacity: .75; }
+    .plan-csv    { font-weight: 700; }
+    .plan-arrow  { color: var(--sub); margin: 2px 0; }
+    .plan-target { color: var(--primary); }
+    .plan-target.none { color: var(--danger); }
+    .plan-detail { color: var(--sub); font-size: .78rem; margin-top: 4px; }
+  </style>
+
+  <script type="module">
+    import { requireAuth } from "../js/supabaseClient.js";
+    import { parseDiveCsv, buildMatchPlan } from "../js/csvImport.js";
+    import { findUnmatchedDivesByDate, updateDiveFromComputer, saveDepthProfile } from "../js/api.js";
+    import { esc, showAlert } from "../js/ui.js";
+
+    const user = await requireAuth();
+    let plan = [];
+
+    document.getElementById("btn-preview").addEventListener("click", async () => {
+      const fileInput = document.getElementById("csv-file");
+      const btn = document.getElementById("btn-preview");
+      if (!fileInput.files.length) { showAlert("CSVファイルを選択してください", "error"); return; }
+
+      btn.disabled = true;
+      btn.textContent = "⏳ 解析中...";
+      try {
+        const buf   = await fileInput.files[0].arrayBuffer();
+        const dives = parseDiveCsv(buf);
+        if (!dives.length) { showAlert("CSVからダイブデータを読み取れませんでした", "error"); return; }
+
+        plan = await buildMatchPlan(dives, findUnmatchedDivesByDate);
+
+        const list = document.getElementById("plan-list");
+        list.innerHTML = plan.map(({ csv, target }) => {
+          const csvLabel = `${csv.date} ${csv.start_time}〜${csv.end_time || "?"} 最大${csv.max_depth ?? "?"}m`
+            + (csv.duration != null ? ` ${csv.duration}分` : "");
+          if (target) {
+            return `<div class="plan-item ok">
+              <div class="plan-csv">📟 ${esc(csvLabel)}</div>
+              <div class="plan-arrow">↓ このログを更新</div>
+              <div class="plan-target">📖 ${esc(target.date)} ${esc(target.location)} #${target.dive_number ?? "?"}${target.point ? " " + esc(target.point) : ""}</div>
+              <div class="plan-detail">最大水深/平均水深/潜水時間/開始・終了時刻/水温 と深度グラフを書き込みます</div>
+            </div>`;
+          }
+          return `<div class="plan-item skip">
+            <div class="plan-csv">📟 ${esc(csvLabel)}</div>
+            <div class="plan-target none">⚠ 対応する未入力ログがありません — スキップされます</div>
+            <div class="plan-detail">先に「ダイビングを記録」でこの日のログを作成してください</div>
+          </div>`;
+        }).join("");
+
+        document.getElementById("select-step").hidden = true;
+        document.getElementById("preview-step").hidden = false;
+        showAlert(`${plan.filter(p => p.target).length}件が更新対象、${plan.filter(p => !p.target).length}件がスキップ`, "success");
+      } catch (e) {
+        showAlert("エラー: " + e.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "照合内容を確認する →";
+      }
+    });
+
+    document.getElementById("btn-back").addEventListener("click", () => {
+      document.getElementById("preview-step").hidden = true;
+      document.getElementById("select-step").hidden = false;
+      document.getElementById("alert-area").innerHTML = "";
+    });
+
+    document.getElementById("btn-apply").addEventListener("click", async () => {
+      const btn = document.getElementById("btn-apply");
+      btn.disabled = true;
+      btn.textContent = "⏳ 更新中...";
+      let updated = 0, skipped = 0, failed = 0;
+
+      for (const { csv, target } of plan) {
+        if (!target) { skipped++; continue; }
+        try {
+          await updateDiveFromComputer(target.id, csv);
+          if (csv.depth_profile.length) {
+            await saveDepthProfile(user.id, target.id, csv.depth_profile, csv.warning);
+          }
+          updated++;
+        } catch { failed++; }
+      }
+
+      document.getElementById("preview-step").hidden = true;
+      document.getElementById("result-step").hidden = false;
+      document.getElementById("result-summary").innerHTML =
+        `<div class="alert ${failed ? "alert-error" : "alert-success"}">` +
+        `✅ ${updated}件更新 / ⏭ ${skipped}件スキップ` + (failed ? ` / ❌ ${failed}件失敗` : "") +
+        `</div>`;
+    });
+  </script>
+</body>
+</html>
