@@ -1,0 +1,101 @@
+/* ログブック閲覧ビュー共通スタイル（旧 output_templates の共通部を抽出） */
+:root {
+  --phi: 1.618;
+
+  --paper:     #f4ede0;
+  --paper-d:   #e8dbc8;
+  --ink:       #333333;
+  --ink-fade:  #666655;
+  --ink-faint: #999988;
+  --accent:    #3d6b8a;
+  --accent-d:  #2a4f6b;
+  --rust:      #8b3a1e;
+  --shadow:    rgba(51,51,51,0.15);
+
+  --sp-xs:  0.382rem;
+  --sp-s:   0.618rem;
+  --sp-m:   1rem;
+  --sp-l:   1.618rem;
+  --sp-xl:  2.618rem;
+  --sp-xxl: 4.236rem;
+
+  --fs-xs:  0.618rem;
+  --fs-s:   0.764rem;
+  --fs-m:   1rem;
+  --fs-l:   1.272rem;
+  --fs-xl:  1.618rem;
+  --fs-xxl: 2.618rem;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: linear-gradient(180deg, #03111f 0%, #051828 45%, #071e32 100%);
+  min-height: 100vh;
+  font-family: 'Playfair Display', Georgia, serif;
+  color: var(--ink);
+  padding: 2rem 1rem 4rem;
+}
+
+/* ── 海中レイヤー（泡・魚）── */
+.sea {
+  position: fixed; inset: 0;
+  pointer-events: none; overflow: hidden; z-index: 0;
+}
+.book { max-width: 860px; margin: 0 auto; position: relative; z-index: 1; }
+
+@keyframes rise {
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
+  8%   { opacity: 0.35; }
+  88%  { opacity: 0.18; }
+  100% { transform: translateY(-108vh) translateX(var(--drift)); opacity: 0; }
+}
+.b {
+  position: absolute; border-radius: 50%;
+  border: 1px solid rgba(140,220,255,0.18);
+  background: radial-gradient(circle at 32% 28%, rgba(200,240,255,0.12), rgba(60,170,255,0.02));
+  animation: rise var(--dur) ease-in var(--delay) infinite;
+}
+@keyframes swim-right {
+  0%   { transform: translateX(-200px); opacity: 0; }
+  6%   { opacity: 0.8; }
+  92%  { opacity: 0.7; }
+  100% { transform: translateX(calc(100vw + 200px)); opacity: 0; }
+}
+@keyframes swim-left {
+  0%   { transform: translateX(calc(100vw + 200px)) scaleX(-1); opacity: 0; }
+  6%   { opacity: 0.8; }
+  92%  { opacity: 0.7; }
+  100% { transform: translateX(-200px) scaleX(-1); opacity: 0; }
+}
+.fish-sea { position: absolute; pointer-events: none; }
+
+/* ── 共通パーツ ── */
+.stamp {
+  display: inline-block;
+  border: 3px double var(--rust);
+  padding: 0.4rem 1.2rem;
+  font-family: 'Special Elite', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  color: var(--rust);
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  opacity: 0.8;
+}
+.divider {
+  text-align: center;
+  margin: 1.5rem 0;
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+  letter-spacing: 0.5em;
+}
+.divider::before, .divider::after { content: '─────'; margin: 0 0.5em; }
+
+.loading-note {
+  text-align: center;
+  font-family: 'Special Elite', monospace;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.2em;
+  padding: 4rem 0;
+}

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🤿 Dive Log — 魚サムネイル管理</title>
+  <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="../record/index.html" class="logo">🤿 Dive Log</a>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <a href="../record/index.html" style="font-size:.85rem; color:var(--sub); text-decoration:none;">← 記録メニューに戻る</a>
+      <h2 class="card-title" style="margin-top:12px;">🖼 魚サムネイル管理</h2>
+      <p class="card-sub">サムネイル未登録の魚に画像を設定します</p>
+
+      <div id="alert-area"></div>
+      <div id="empty-note" hidden style="text-align:center; color:var(--sub); padding:20px 0;">
+        🎉 すべての魚にサムネイルが登録されています！
+      </div>
+      <div id="fish-list"></div>
+    </div>
+  </main>
+
+  <style>
+    .thumb-item {
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .thumb-item.done { border-color: #9ae6b4; background: #f0fff4; }
+    .thumb-name { font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
+    .thumb-links { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .thumb-links a {
+      font-size: .78rem; color: var(--accent); text-decoration: none;
+      border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px;
+    }
+    .thumb-links a:hover { background: var(--chip-bg); }
+    .thumb-inputs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .thumb-inputs input[type="url"] { flex: 1; min-width: 200px; }
+    .thumb-inputs .btn { padding: 8px 14px; font-size: .85rem; }
+  </style>
+
+  <script type="module">
+    import { requireAuth } from "../js/supabaseClient.js";
+    import { listFish, updateFishThumbnail, uploadFishThumb } from "../js/api.js";
+    import { esc, showAlert, resizeImage } from "../js/ui.js";
+
+    const user = await requireAuth();
+
+    const fishList = (await listFish()).filter(f => !f.thumbnail_url);
+    if (!fishList.length) {
+      document.getElementById("empty-note").hidden = false;
+    }
+
+    document.getElementById("fish-list").innerHTML = fishList.map((f, i) => {
+      const q = encodeURIComponent(f.name + " 魚");
+      return `<div class="thumb-item" id="item-${i}">
+        <div class="thumb-name">🐠 ${esc(f.name)}${f.english_name ? ` <span style="font-weight:400;color:var(--sub);font-size:.8rem">${esc(f.english_name)}</span>` : ""}</div>
+        <div class="thumb-links">
+          <a href="https://www.google.com/search?tbm=isch&q=${q}" target="_blank" rel="noopener">🔍 Google画像検索</a>
+          <a href="https://www.inaturalist.org/search?q=${encodeURIComponent(f.name)}" target="_blank" rel="noopener">🌿 iNaturalist</a>
+          <a href="https://ja.wikipedia.org/wiki/${encodeURIComponent(f.name)}" target="_blank" rel="noopener">📖 Wikipedia</a>
+        </div>
+        <div class="thumb-inputs">
+          <input type="url" id="url-${i}" placeholder="画像URLを貼り付け">
+          <button type="button" class="btn btn-primary" data-action="url" data-i="${i}">URLで登録</button>
+          <input type="file" id="file-${i}" accept="image/*" hidden>
+          <button type="button" class="btn btn-secondary" data-action="file" data-i="${i}">📁 ファイルから</button>
+        </div>
+      </div>`;
+    }).join("");
+
+    document.getElementById("fish-list").addEventListener("click", async e => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      const i    = +btn.dataset.i;
+      const fish = fishList[i];
+
+      if (btn.dataset.action === "file") {
+        const fileInput = document.getElementById(`file-${i}`);
+        fileInput.onchange = async () => {
+          if (!fileInput.files.length) return;
+          btn.disabled = true; btn.textContent = "⏳";
+          try {
+            const resized = await resizeImage(fileInput.files[0], 800);
+            const path = await uploadFishThumb(user.id, fish.id, resized);
+            await updateFishThumbnail(fish.id, path);
+            markDone(i, fish.name);
+          } catch (err) {
+            showAlert("エラー: " + err.message, "error");
+            btn.disabled = false; btn.textContent = "📁 ファイルから";
+          }
+        };
+        fileInput.click();
+        return;
+      }
+
+      // URL登録
+      const url = document.getElementById(`url-${i}`).value.trim();
+      if (!url) { showAlert("URLを入力してください", "error"); return; }
+      btn.disabled = true; btn.textContent = "⏳";
+      try {
+        await updateFishThumbnail(fish.id, url);
+        markDone(i, fish.name);
+      } catch (err) {
+        showAlert("エラー: " + err.message, "error");
+        btn.disabled = false; btn.textContent = "URLで登録";
+      }
+    });
+
+    function markDone(i, name) {
+      const item = document.getElementById(`item-${i}`);
+      item.classList.add("done");
+      item.querySelector(".thumb-inputs").innerHTML = `<span style="color:#276749;font-size:.9rem;">✅ 登録しました</span>`;
+      showAlert(`✅ ${name} のサムネイルを登録しました`, "success");
+    }
+  </script>
+</body>
+</html>

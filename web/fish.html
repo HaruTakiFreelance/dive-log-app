@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My 図鑑 — Dive Log</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/logbook.css">
+  <style>
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-xs);
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.4);
+      text-decoration: none;
+      margin-bottom: var(--sp-l);
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: rgba(255,255,255,0.7); }
+
+    .cover-card {
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow: 0 2px 6px var(--shadow), 0 8px 24px rgba(0,0,0,0.35);
+      position: relative; overflow: hidden;
+      margin-bottom: 2rem;
+    }
+    .cover-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(transparent, transparent 27px, rgba(44,30,16,0.06) 28px);
+      pointer-events: none;
+    }
+    .cover-inner {
+      padding: 2.5rem 3.5rem;
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--sp-l);
+    }
+    .stamp { margin-bottom: 1rem; }
+    .title {
+      font-family: 'Special Elite', monospace;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      color: var(--ink);
+      letter-spacing: 0.05em;
+      line-height: 1.1;
+      margin-bottom: 0.25rem;
+    }
+    .subtitle {
+      font-family: 'Caveat', cursive;
+      font-size: 1.2rem;
+      color: var(--ink-fade);
+    }
+    .cover-stats {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: var(--sp-xs);
+    }
+    .stat-total {
+      font-family: 'Special Elite', monospace;
+      font-size: clamp(2.4rem, 5vw, 3.5rem);
+      color: var(--accent-d);
+      line-height: 1;
+    }
+    .stat-total-label {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      color: var(--ink-faint);
+      letter-spacing: 0.15em;
+      text-align: right;
+    }
+
+    .section-title {
+      font-family: 'Special Elite', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.3em;
+      color: rgba(255,255,255,0.35);
+      text-transform: uppercase;
+      margin-bottom: var(--sp-m);
+    }
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-s);
+      margin-bottom: var(--sp-l);
+    }
+    .filter-btn {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.12em;
+      padding: 4px 14px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: transparent;
+      color: rgba(255,255,255,0.45);
+      cursor: pointer;
+      border-radius: 1px;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .filter-btn:hover {
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.75);
+      border-color: rgba(255,255,255,0.35);
+    }
+    .filter-btn.active {
+      background: var(--paper);
+      color: var(--ink);
+      border-color: var(--paper);
+    }
+
+    .fish-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: var(--sp-m);
+    }
+    .fish-card {
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 1px 3px var(--shadow);
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      position: relative;
+    }
+    .fish-card:hover {
+      transform: translateY(-3px) rotate(0.3deg);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+    .fish-card.hidden { display: none; }
+    .fish-thumb-wrap {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      overflow: hidden;
+      background: var(--paper-d);
+      border-bottom: 2px solid var(--paper-d);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .fish-thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: sepia(12%) saturate(88%);
+      transition: filter 0.2s;
+    }
+    .fish-card:hover .fish-thumb-wrap img { filter: sepia(0%) saturate(100%); }
+    .fish-thumb-placeholder { font-size: 2.8rem; opacity: 0.3; }
+    .fish-body { padding: var(--sp-s) var(--sp-s) var(--sp-m); }
+    .fish-category-badge {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.06em;
+      background: var(--accent);
+      color: #deeaf3;
+      padding: 1px 6px;
+      display: inline-block;
+      margin-bottom: var(--sp-xs);
+    }
+    .fish-name-ja {
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: var(--fs-m);
+      color: var(--ink);
+      line-height: 1.2;
+      margin-bottom: 2px;
+    }
+    .fish-name-en {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      color: var(--ink-fade);
+      letter-spacing: 0.04em;
+    }
+    .fish-rarity {
+      font-size: var(--fs-xs);
+      color: #b89200;
+      margin-top: var(--sp-xs);
+      letter-spacing: 0.05em;
+    }
+
+    /* modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(20,14,6,0.82);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-l);
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow: 0 4px 12px var(--shadow), 0 16px 48px rgba(0,0,0,0.5);
+      max-width: 560px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+    }
+    .modal::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(transparent, transparent 27px, rgba(44,30,16,0.05) 28px);
+      pointer-events: none;
+    }
+    .modal-close {
+      position: absolute;
+      top: var(--sp-m);
+      right: var(--sp-m);
+      background: none;
+      border: none;
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-m);
+      color: var(--ink-faint);
+      cursor: pointer;
+      line-height: 1;
+      padding: 4px 8px;
+      transition: color 0.15s;
+      z-index: 1;
+    }
+    .modal-close:hover { color: var(--ink); }
+    .modal-thumb-wrap {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background: var(--paper-d);
+      border-bottom: 2px solid var(--paper-d);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-thumb-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: sepia(8%) saturate(90%);
+    }
+    .modal-thumb-placeholder { font-size: 4rem; opacity: 0.25; }
+    .modal-inner {
+      padding: var(--sp-xl) var(--sp-xl) var(--sp-xxl);
+      position: relative;
+    }
+    .modal-category {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.12em;
+      background: var(--accent);
+      color: #deeaf3;
+      padding: 2px 10px;
+      display: inline-block;
+      margin-bottom: var(--sp-s);
+    }
+    .modal-name-ja {
+      font-family: 'Playfair Display', serif;
+      font-size: var(--fs-xxl);
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.1;
+      margin-bottom: var(--sp-xs);
+    }
+    .modal-name-en {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-m);
+      color: var(--ink-fade);
+      letter-spacing: 0.06em;
+      margin-bottom: 2px;
+    }
+    .modal-name-sci {
+      font-style: italic;
+      font-size: var(--fs-s);
+      color: var(--ink-faint);
+      margin-bottom: var(--sp-l);
+    }
+    .modal-divider {
+      border: none;
+      border-top: 1px solid var(--paper-d);
+      margin: var(--sp-m) 0;
+    }
+    .modal-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-s) var(--sp-l);
+      margin-bottom: var(--sp-m);
+    }
+    .modal-meta-label {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.12em;
+      color: var(--ink-faint);
+      margin-bottom: 2px;
+    }
+    .modal-meta-value {
+      font-size: var(--fs-s);
+      color: var(--ink-fade);
+    }
+    .modal-meta-value.stars { color: #b89200; }
+    .modal-memo {
+      font-style: italic;
+      font-size: var(--fs-m);
+      color: var(--ink-fade);
+      line-height: var(--phi);
+      border-left: 2px solid var(--paper-d);
+      padding-left: var(--sp-m);
+      margin-top: var(--sp-m);
+    }
+
+    @media (max-width: 600px) {
+      .cover-inner { padding: 2rem 1.5rem; flex-direction: column; align-items: flex-start; }
+      .cover-stats { align-items: flex-start; }
+      .stat-total-label { text-align: left; }
+      .fish-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+      .modal-inner { padding: var(--sp-l) var(--sp-l) var(--sp-xl); }
+      .modal-meta-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="sea" aria-hidden="true"></div>
+<div class="book">
+  <a class="back-link" href="./index.html">← ログブック一覧に戻る</a>
+  <div class="loading-note" id="loading">— LOADING —</div>
+  <div id="content" hidden>
+
+    <div class="cover-card">
+      <div class="cover-inner">
+        <div class="cover-text">
+          <div class="stamp">Personal Dive Log Book</div>
+          <div class="title">Fish Encyclopedia</div>
+          <div class="subtitle">My 図鑑</div>
+        </div>
+        <div class="cover-stats">
+          <div class="stat-total" id="total">0</div>
+          <div class="stat-total-label">SPECIES RECORDED</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">── Filter by Category ──</div>
+    <div class="filter-bar" id="filter-bar">
+      <button class="filter-btn active" data-category="all">All</button>
+    </div>
+
+    <div class="fish-grid" id="fish-grid"></div>
+
+  </div>
+</div>
+
+<!-- 詳細モーダル -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <button class="modal-close" id="modal-close" aria-label="閉じる">✕</button>
+    <div class="modal-thumb-wrap" id="modal-thumb-wrap">
+      <div class="modal-thumb-placeholder">🐠</div>
+    </div>
+    <div class="modal-inner">
+      <div id="modal-category" class="modal-category" style="display:none"></div>
+      <div id="modal-name-ja" class="modal-name-ja"></div>
+      <div id="modal-name-en" class="modal-name-en" style="display:none"></div>
+      <div id="modal-name-sci" class="modal-name-sci" style="display:none"></div>
+      <hr class="modal-divider">
+      <div class="modal-meta-grid">
+        <div class="modal-meta-item" id="meta-family-wrap" style="display:none">
+          <div class="modal-meta-label">FAMILY</div>
+          <div class="modal-meta-value" id="meta-family"></div>
+        </div>
+        <div class="modal-meta-item" id="meta-first-wrap" style="display:none">
+          <div class="modal-meta-label">FIRST SEEN</div>
+          <div class="modal-meta-value" id="meta-first"></div>
+        </div>
+        <div class="modal-meta-item" id="meta-rarity-wrap" style="display:none">
+          <div class="modal-meta-label">RARITY</div>
+          <div class="modal-meta-value stars" id="meta-rarity"></div>
+        </div>
+        <div class="modal-meta-item" id="meta-popularity-wrap" style="display:none">
+          <div class="modal-meta-label">POPULARITY</div>
+          <div class="modal-meta-value stars" id="meta-popularity"></div>
+        </div>
+        <div class="modal-meta-item" id="meta-photo-wrap" style="display:none">
+          <div class="modal-meta-label">PHOTO EASE</div>
+          <div class="modal-meta-value stars" id="meta-photo"></div>
+        </div>
+      </div>
+      <div id="modal-memo" class="modal-memo" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { requireAuth } from "./js/supabaseClient.js";
+  import { listFish, signedThumbUrls } from "./js/api.js";
+  import { initSea } from "./js/sea.js";
+  import { esc } from "./js/ui.js";
+
+  initSea();
+  await requireAuth();
+
+  const fishList = await listFish();
+  const storagePaths = fishList
+    .filter(f => f.thumbnail_url?.startsWith("storage:"))
+    .map(f => f.thumbnail_url.slice(8));
+  const thumbMap = await signedThumbUrls(storagePaths);
+  const thumbUrl = f => {
+    if (!f.thumbnail_url) return "";
+    return f.thumbnail_url.startsWith("storage:")
+      ? (thumbMap[f.thumbnail_url.slice(8)] ?? "")
+      : f.thumbnail_url;
+  };
+
+  document.getElementById("total").textContent = fishList.length;
+
+  // カテゴリフィルタ
+  const categories = [...new Set(fishList.map(f => f.category).filter(Boolean))];
+  const filterBar = document.getElementById("filter-bar");
+  categories.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.className = "filter-btn";
+    btn.dataset.category = cat;
+    btn.textContent = cat;
+    filterBar.appendChild(btn);
+  });
+
+  // グリッド
+  document.getElementById("fish-grid").innerHTML = fishList.map((f, i) => `
+    <div class="fish-card" data-index="${i}" data-category="${esc(f.category ?? "")}">
+      <div class="fish-thumb-wrap">
+        ${thumbUrl(f)
+          ? `<img src="${esc(thumbUrl(f))}" alt="${esc(f.name)}" loading="lazy">`
+          : `<div class="fish-thumb-placeholder">🐠</div>`}
+      </div>
+      <div class="fish-body">
+        ${f.category ? `<div class="fish-category-badge">${esc(f.category)}</div>` : ""}
+        <div class="fish-name-ja">${esc(f.name)}</div>
+        ${f.english_name ? `<div class="fish-name-en">${esc(f.english_name)}</div>` : ""}
+        ${f.rarity ? `<div class="fish-rarity">${esc(f.rarity)}</div>` : ""}
+      </div>
+    </div>`).join("");
+
+  filterBar.addEventListener("click", e => {
+    const btn = e.target.closest(".filter-btn");
+    if (!btn) return;
+    filterBar.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    const active = btn.dataset.category;
+    document.querySelectorAll(".fish-card").forEach(card => {
+      card.classList.toggle("hidden", active !== "all" && card.dataset.category !== active);
+    });
+  });
+
+  // モーダル
+  const overlay = document.getElementById("modal-overlay");
+  const setField = (id, value, wrapId) => {
+    const el = document.getElementById(id);
+    const wrap = wrapId ? document.getElementById(wrapId) : el;
+    if (value) { el.textContent = value; wrap.style.display = ""; }
+    else wrap.style.display = "none";
+  };
+
+  function openModal(f) {
+    const thumbWrap = document.getElementById("modal-thumb-wrap");
+    const url = thumbUrl(f);
+    if (url) {
+      thumbWrap.innerHTML = "";
+      const img = document.createElement("img");
+      img.src = url; img.alt = f.name; img.loading = "lazy";
+      img.addEventListener("error", () => {
+        thumbWrap.innerHTML = '<div class="modal-thumb-placeholder">🐠</div>';
+      });
+      thumbWrap.appendChild(img);
+    } else {
+      thumbWrap.innerHTML = '<div class="modal-thumb-placeholder">🐠</div>';
+    }
+    setField("modal-category", f.category);
+    setField("modal-name-ja", f.name);
+    setField("modal-name-en", f.english_name);
+    setField("modal-name-sci", f.scientific_name);
+    setField("meta-family", f.family, "meta-family-wrap");
+    setField("meta-first", f.first_seen, "meta-first-wrap");
+    setField("meta-rarity", f.rarity, "meta-rarity-wrap");
+    setField("meta-popularity", f.popularity, "meta-popularity-wrap");
+    setField("meta-photo", f.photo_ease, "meta-photo-wrap");
+    setField("modal-memo", f.memo);
+    overlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function closeModal() {
+    overlay.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  document.getElementById("fish-grid").addEventListener("click", e => {
+    const card = e.target.closest(".fish-card");
+    if (card) openModal(fishList[+card.dataset.index]);
+  });
+  document.getElementById("modal-close").addEventListener("click", closeModal);
+  overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+  document.getElementById("loading").hidden = true;
+  document.getElementById("content").hidden = false;
+</script>
+</body>
+</html>

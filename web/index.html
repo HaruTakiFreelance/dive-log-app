@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dive Log Book</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/logbook.css">
+  <style>
+    /* ── cover card ── */
+    .cover-card {
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow: 0 2px 6px var(--shadow), 0 8px 24px rgba(0,0,0,0.35);
+      position: relative; overflow: hidden;
+      margin-bottom: 2rem;
+    }
+    .cover-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(transparent, transparent 27px, rgba(44,30,16,0.06) 28px);
+      pointer-events: none;
+    }
+    .cover-inner { padding: 3rem 3.5rem; position: relative; }
+
+    .title {
+      font-family: 'Special Elite', monospace;
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      color: var(--ink);
+      letter-spacing: 0.05em;
+      line-height: 1.1;
+      margin-bottom: 0.3rem;
+    }
+    .subtitle {
+      font-family: 'Caveat', cursive;
+      font-size: 1.3rem;
+      color: var(--ink-fade);
+      margin-bottom: 2rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .stat-box {
+      text-align: center;
+      padding: 0.8rem 0.5rem;
+      border: 1px solid var(--paper-d);
+      background: rgba(255,255,255,0.3);
+    }
+    .stat-num {
+      font-family: 'Special Elite', monospace;
+      font-size: 2rem;
+      color: var(--accent-d);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--ink-faint);
+      letter-spacing: 0.1em;
+      margin-top: 0.3rem;
+    }
+    .time-note {
+      text-align: center;
+      font-family: 'Special Elite', monospace;
+      font-size: 0.8rem;
+      color: var(--ink-fade);
+      letter-spacing: 0.15em;
+      margin: 0.5rem 0 0;
+    }
+
+    /* ── nav ── */
+    .nav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.6rem; margin-bottom: 1.6rem; }
+    .nav-card {
+      display: flex; flex-direction: column;
+      align-items: flex-start; justify-content: flex-end;
+      padding: 0.9rem 1rem;
+      background: var(--paper);
+      border-radius: 2px;
+      border-left: 3px solid var(--paper-d);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.28);
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+      min-height: 72px;
+      cursor: pointer;
+    }
+    .nav-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      border-color: var(--accent);
+    }
+    .nav-card-en {
+      font-family: 'Special Elite', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.22em;
+      color: var(--ink-faint);
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
+    }
+    .nav-card-ja {
+      font-family: 'Caveat', cursive;
+      font-size: 1rem;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+
+    /* ── session grid ── */
+    .section-title {
+      font-family: 'Special Elite', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.3em;
+      color: rgba(255,255,255,0.35);
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+    .sessions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.2rem;
+    }
+    .session-card {
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 1px 3px var(--shadow);
+      overflow: hidden;
+      text-decoration: none;
+      color: var(--ink);
+      display: block;
+      transition: transform 0.15s, box-shadow 0.15s;
+      position: relative;
+    }
+    .session-card:hover {
+      transform: translateY(-3px) rotate(0.3deg);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+    .card-thumb {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      display: block;
+      filter: sepia(20%) saturate(85%);
+      border-bottom: 2px solid var(--paper-d);
+    }
+    .card-thumb-placeholder {
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: var(--paper-d);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      border-bottom: 2px solid var(--paper-d);
+      opacity: 0.5;
+    }
+    .card-body { padding: 0.9rem 1rem; }
+    .card-date {
+      font-family: 'Special Elite', monospace;
+      font-size: 0.68rem;
+      color: var(--ink-faint);
+      letter-spacing: 0.12em;
+      margin-bottom: 0.2rem;
+    }
+    .card-location {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 0.4rem;
+    }
+    .card-meta { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+    .card-chip {
+      font-family: 'Special Elite', monospace;
+      font-size: 0.68rem;
+      color: var(--ink-fade);
+      background: var(--paper-d);
+      padding: 3px 8px;
+      letter-spacing: 0.04em;
+      line-height: 1;
+    }
+    .card-chip.accent { background: var(--accent); color: #deeaf3; }
+
+    .user-note {
+      text-align: center;
+      font-family: 'Special Elite', monospace;
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.25);
+      margin-top: 2rem;
+      letter-spacing: 0.15em;
+    }
+    .user-note button {
+      background: none; border: none; cursor: pointer;
+      color: rgba(255,255,255,0.4); font-family: inherit; font-size: inherit;
+      letter-spacing: inherit; text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      .cover-inner { padding: 2rem 1.5rem; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .sessions-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="sea" aria-hidden="true"></div>
+<div class="book">
+  <div class="loading-note" id="loading">— LOADING LOGBOOK —</div>
+  <div id="content" hidden>
+
+    <!-- カバー -->
+    <div class="cover-card">
+      <div class="cover-inner">
+        <div class="stamp">Personal Dive Log Book</div>
+        <div class="title">Dive Log</div>
+
+        <div class="stats-grid">
+          <div class="stat-box"><div class="stat-num" id="st-dives">0</div><div class="stat-label">TOTAL DIVES</div></div>
+          <div class="stat-box"><div class="stat-num" id="st-species">0</div><div class="stat-label">SPECIES</div></div>
+          <div class="stat-box"><div class="stat-num" id="st-locations">0</div><div class="stat-label">LOCATIONS</div></div>
+          <div class="stat-box"><div class="stat-num" id="st-depth">0m</div><div class="stat-label">MAX DEPTH</div></div>
+        </div>
+        <div class="time-note" id="st-time" hidden></div>
+
+        <div class="divider">✦</div>
+        <div style="font-family:'Caveat',cursive; font-size:1rem; color:var(--ink-fade); text-align:center;" id="st-range"></div>
+      </div>
+    </div>
+
+    <!-- ナビ -->
+    <div class="nav-grid">
+      <a href="./record/index.html" class="nav-card">
+        <div class="nav-card-en">Register</div>
+        <div class="nav-card-ja">記録する</div>
+      </a>
+      <a href="./fish.html" class="nav-card">
+        <div class="nav-card-en">Encyclopedia</div>
+        <div class="nav-card-ja">My 図鑑</div>
+      </a>
+    </div>
+
+    <!-- セッション一覧 -->
+    <div class="section-title">── All Sessions ──</div>
+    <div class="sessions-grid" id="sessions"></div>
+
+  </div>
+</div>
+<div class="user-note" id="user-note" hidden>
+  <span id="user-email"></span> · <button id="btn-logout">logout</button>
+</div>
+
+<script type="module">
+  import { requireAuth, signOut } from "./js/supabaseClient.js";
+  import { listDives, listFish, listPhotos, signedPhotoUrls } from "./js/api.js";
+  import { initSea } from "./js/sea.js";
+  import { esc } from "./js/ui.js";
+
+  initSea();
+  const user = await requireAuth();
+  document.getElementById("user-email").textContent = user.email;
+  document.getElementById("user-note").hidden = false;
+  document.getElementById("btn-logout").addEventListener("click", signOut);
+
+  const [dives, fish, photos] = await Promise.all([listDives(), listFish(), listPhotos()]);
+
+  // ── サマリー ──
+  const totalDuration = dives.reduce((a, d) => a + (d.duration || 0), 0);
+  const maxDepth  = Math.max(0, ...dives.map(d => d.max_depth || 0));
+  const maxNumber = Math.max(0, ...dives.map(d => d.dive_number || 0));
+  document.getElementById("st-dives").textContent     = maxNumber;
+  document.getElementById("st-species").textContent   = fish.length;
+  document.getElementById("st-locations").textContent = new Set(dives.map(d => d.location).filter(Boolean)).size;
+  document.getElementById("st-depth").textContent     = maxDepth + "m";
+  if (totalDuration > 0) {
+    const el = document.getElementById("st-time");
+    el.textContent = `TOTAL UNDERWATER — ${Math.floor(totalDuration / 60)}h ${totalDuration % 60}m`;
+    el.hidden = false;
+  }
+  if (dives.length) {
+    document.getElementById("st-range").textContent = `${dives[0].date} 〜 ${dives[dives.length - 1].date}`;
+  }
+
+  // ── セッション（date+locationでグループ化）──
+  const sessionMap = new Map();
+  for (const d of dives) {
+    const key = `${d.date}|${d.location}`;
+    if (!sessionMap.has(key)) sessionMap.set(key, { date: d.date, location: d.location, dives: [], fishIds: new Set() });
+    const s = sessionMap.get(key);
+    s.dives.push(d);
+    d.fish_ids.forEach(id => s.fishIds.add(id));
+  }
+  const sessions = [...sessionMap.values()];
+
+  // セッションごとの先頭写真をサムネに（署名URL）
+  const firstPhoto = new Map();
+  for (const p of photos) {
+    const key = `${p.date}|${p.location}`;
+    if (!firstPhoto.has(key)) firstPhoto.set(key, p.storage_path);
+  }
+  const thumbUrls = await signedPhotoUrls([...firstPhoto.values()]);
+
+  const fmtDisplay = dateStr => {
+    const [y, m, d] = dateStr.split("-");
+    return { md: `${+m}月${+d}日`, year: y };
+  };
+
+  document.getElementById("sessions").innerHTML = sessions.map(s => {
+    const { md, year } = fmtDisplay(s.date);
+    const numbers = s.dives.map(d => d.dive_number).filter(Boolean);
+    const range = numbers.length > 1
+      ? `${Math.min(...numbers)}〜${Math.max(...numbers)}本目`
+      : numbers.length ? `${numbers[0]}本目` : "";
+    const thumbPath = firstPhoto.get(`${s.date}|${s.location}`);
+    const thumbUrl  = thumbPath ? thumbUrls[thumbPath] : null;
+    const href = `./session.html?date=${encodeURIComponent(s.date)}&location=${encodeURIComponent(s.location)}`;
+    return `<a class="session-card" href="${href}">
+      ${thumbUrl
+        ? `<img class="card-thumb" src="${esc(thumbUrl)}" alt="${esc(s.location)}" loading="lazy">`
+        : `<div class="card-thumb-placeholder">🤿</div>`}
+      <div class="card-body">
+        <div class="card-date">${esc(md)} · ${esc(year)}</div>
+        <div class="card-location">${esc(s.location)}</div>
+        <div class="card-meta">
+          <span class="card-chip accent">${s.dives.length} dives</span>
+          ${range ? `<span class="card-chip">#${esc(range)}</span>` : ""}
+          ${s.fishIds.size ? `<span class="card-chip">🐠 ${s.fishIds.size}種</span>` : ""}
+        </div>
+      </div>
+    </a>`;
+  }).join("");
+
+  document.getElementById("loading").hidden = true;
+  document.getElementById("content").hidden = false;
+</script>
+</body>
+</html>
