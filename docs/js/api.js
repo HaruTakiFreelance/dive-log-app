@@ -131,7 +131,7 @@ export async function upsertReview(userId, date, location, text) {
 
 // ── 写真 ────────────────────────────────────────────
 
-export async function uploadPhoto(userId, file, date, location, caption) {
+export async function uploadPhoto(userId, file, date, location, caption, diveId = null) {
   const ext  = (file.name.split(".").pop() || "jpg").toLowerCase();
   const path = `${userId}/${date}_${crypto.randomUUID().slice(0, 8)}.${ext}`;
   const { error } = await supabase.storage.from("photos").upload(path, file, {
@@ -139,7 +139,8 @@ export async function uploadPhoto(userId, file, date, location, caption) {
   });
   throwIf(error);
   const { error: e2 } = await supabase.from("photos").insert({
-    user_id: userId, date, location, caption: caption || null, storage_path: path,
+    user_id: userId, date, location, caption: caption || null,
+    storage_path: path, dive_id: diveId,
   });
   throwIf(e2);
   return path;

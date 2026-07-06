@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🤿 Dive Log — ダイブごとに写真を追加</title>
+  <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="./index.html" class="logo">🤿 Dive Log</a>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <a href="./index.html" style="font-size:.85rem; color:var(--sub); text-decoration:none;">← 記録メニューに戻る</a>
+      <h2 class="card-title" style="margin-top:12px;">📷 ダイブごとに写真を追加</h2>
+      <p class="card-sub">選んだダイブのカード内（動画の上）に表示されます</p>
+
+      <div id="alert-area"></div>
+
+      <form class="form" id="photo-form">
+        <div class="field">
+          <label for="dive-select">ダイブを選択</label>
+          <select id="dive-select">
+            <option value="">— 読み込み中... —</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>写真をアップロード</label>
+          <div id="photo-list"></div>
+          <button type="button" class="btn btn-secondary" id="btn-add-photo" style="margin-top:8px; width:100%;">
+            + ファイルを追加
+          </button>
+          <p style="font-size:.75rem; color:var(--sub); margin-top:6px;">
+            JPG / PNG / HEIC。複数ファイル同時選択も可。画像は自動で縮小されます。
+          </p>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full" id="btn-submit">保存する</button>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:8px;">
+      <a href="./index.html" class="btn btn-secondary btn-full">🏠 記録メニューへ</a>
+    </div>
+  </main>
+
+  <style>
+    .photo-row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+    .photo-row .field { flex: 1; margin-bottom: 4px; }
+    .photo-remove {
+      background: none; border: none; color: var(--sub);
+      font-size: 1.1rem; cursor: pointer; padding: 10px 4px 0; flex-shrink: 0;
+    }
+  </style>
+
+  <script type="module">
+    import { requireAuth } from "../js/supabaseClient.js";
+    import { listRecentDives, uploadPhoto } from "../js/api.js";
+    import { showAlert, resizeImage } from "../js/ui.js";
+
+    const user = await requireAuth();
+
+    const select = document.getElementById("dive-select");
+    const dives  = await listRecentDives();
+    select.innerHTML = '<option value="">— ダイブを選んでください —</option>';
+    dives.forEach(d => {
+      const opt = document.createElement("option");
+      opt.value = d.id;
+      opt.dataset.date = d.date;
+      opt.dataset.location = d.location;
+      opt.textContent = `${d.date} ${d.location} #${d.dive_number ?? "?"}${d.point ? " " + d.point : ""}`;
+      select.appendChild(opt);
+    });
+
+    function addFileRow() {
+      const row = document.createElement("div");
+      row.className = "photo-row";
+      row.innerHTML = `
+        <div class="field">
+          <input type="file" name="photo_file" accept="image/*" multiple style="margin-bottom:4px;">
+          <input type="text" name="photo_caption" placeholder="キャプション（任意）">
+        </div>
+        <button type="button" class="photo-remove">✕</button>
+      `;
+      row.querySelector(".photo-remove").addEventListener("click", () => row.remove());
+      document.getElementById("photo-list").appendChild(row);
+    }
+    document.getElementById("btn-add-photo").addEventListener("click", addFileRow);
+    addFileRow();
+
+    document.getElementById("photo-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById("btn-submit");
+      const diveId = select.value;
+      if (!diveId) { showAlert("ダイブを選択してください", "error"); return; }
+
+      const opt      = select.options[select.selectedIndex];
+      const date     = opt.dataset.date;
+      const location = opt.dataset.location;
+
+      const jobs = [];
+      document.querySelectorAll(".photo-row").forEach(row => {
+        const files   = row.querySelector('input[type="file"]').files;
+        const caption = row.querySelector('input[name="photo_caption"]').value.trim();
+        [...files].forEach(f => jobs.push({ file: f, caption }));
+      });
+      if (!jobs.length) { showAlert("ファイルを選択してください", "error"); return; }
+
+      btn.disabled = true;
+      let done = 0;
+      try {
+        for (const { file, caption } of jobs) {
+          btn.textContent = `⏳ アップロード中... (${done + 1}/${jobs.length})`;
+          const resized = await resizeImage(file);
+          await uploadPhoto(user.id, resized, date, location, caption, diveId);
+          done++;
+        }
+        showAlert(`✅ ${done}枚を追加しました`, "success");
+        document.getElementById("photo-list").innerHTML = "";
+        addFileRow();
+      } catch (err) {
+        showAlert(`エラー（${done}枚成功後に失敗）: ` + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "保存する";
+      }
+    });
+  </script>
+</body>
+</html>

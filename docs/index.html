@@ -245,7 +245,7 @@
       </a>
       <a href="#" class="nav-card" id="btn-share">
         <div class="nav-card-en">Share</div>
-        <div class="nav-card-ja" id="share-label">公開リンクをコピー</div>
+        <div class="nav-card-ja" id="share-label">公開リンクを取得</div>
       </a>
     </div>
 
@@ -282,7 +282,7 @@
     } catch (err) {
       label.textContent = "エラー（再試行）";
       alert("公開リンクの作成に失敗しました: " + err.message);
-      setTimeout(() => { label.textContent = "公開リンクをコピー"; }, 3000);
+      setTimeout(() => { label.textContent = "公開リンクを取得"; }, 3000);
       return;
     }
     try {
@@ -293,7 +293,7 @@
       window.prompt("このURLをコピーしてください:", url);
       label.textContent = "公開リンク";
     }
-    setTimeout(() => { label.textContent = "公開リンクをコピー"; }, 3000);
+    setTimeout(() => { label.textContent = "公開リンクを取得"; }, 3000);
   });
 
   const [dives, fish, photos] = await Promise.all([listDives(), listFish(), listPhotos()]);

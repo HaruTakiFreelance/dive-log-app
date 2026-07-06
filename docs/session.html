@@ -293,6 +293,12 @@
       margin-top: var(--sp-s);
       position: relative;
     }
+    .dive-photos {
+      margin-left: calc(var(--sp-xxl) * 0.9);
+      margin-top: var(--sp-s);
+    }
+    .dive-photos .photo-strip { margin-bottom: var(--sp-s); }
+    .dive-photos .photo-item img { height: 150px; }
     .video-slide { flex-shrink: 0; }
     .video-embed {
       border: 2px solid var(--paper-d);
@@ -452,6 +458,7 @@
       .dive-fish-list,
       .fish-slider-wrap,
       .dive-videos,
+      .dive-photos,
       .pencil-row.indent,
       .add-text-link.indent,
       .inline-edit.indent {
@@ -562,10 +569,16 @@
   const fishIndex  = new Map(allFish.map(f => [f.id, f]));
   const profileMap = new Map(profiles.map(p => [p.dive_id, p]));
   const review     = reviews.find(r => r.date === date && r.location === location_)?.text ?? "";
-  const photos     = allPhotos.filter(p => p.date === date && p.location === location_);
+  const sessionPhotosAll = allPhotos.filter(p => p.date === date && p.location === location_);
+  const photos     = sessionPhotosAll.filter(p => !p.dive_id);
+  const photosByDive = new Map();
+  sessionPhotosAll.filter(p => p.dive_id).forEach(p => {
+    if (!photosByDive.has(p.dive_id)) photosByDive.set(p.dive_id, []);
+    photosByDive.get(p.dive_id).push(p);
+  });
 
   // 署名URL（写真 + storage保存のサムネ）
-  const photoUrls = await signedPhotoUrls(photos.map(p => p.storage_path));
+  const photoUrls = await signedPhotoUrls(sessionPhotosAll.map(p => p.storage_path));
   const storageThumbs = allFish
     .filter(f => f.thumbnail_url?.startsWith("storage:"))
     .map(f => f.thumbnail_url.slice(8));
@@ -675,6 +688,19 @@
             </div>
           </div>
           ${fishInDive.length > 1 ? `<div class="inf-dots">${fishInDive.map((_, i) => `<span class="inf-dot${i === 0 ? " active" : ""}"></span>`).join("")}</div>` : ""}
+        </div>
+      </div>` : ""}
+      ${(photosByDive.get(d.id) ?? []).length ? `
+      <div class="dive-photos">
+        <div class="photo-strip">
+          ${photosByDive.get(d.id).map(p => {
+            const url = photoUrls[p.storage_path];
+            if (!url) return "";
+            return `<div class="photo-item">
+              <a href="#" class="lb-trigger" data-src="${esc(url)}"><img src="${esc(url)}" alt="${esc(p.caption ?? "")}" loading="lazy"></a>
+              ${p.caption ? `<div class="photo-caption">${esc(p.caption)}</div>` : ""}
+            </div>`;
+          }).join("")}
         </div>
       </div>` : ""}
       ${videos.length ? `
