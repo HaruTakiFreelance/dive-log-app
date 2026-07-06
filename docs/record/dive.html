@@ -298,9 +298,17 @@
     function closeBulkModal() { document.getElementById("bulk-overlay").hidden = true; }
     document.getElementById("bulk-cancel").addEventListener("click", closeBulkModal);
     document.addEventListener("keydown", e => { if (e.key === "Escape") closeBulkModal(); });
-    document.getElementById("bulk-overlay").addEventListener("click", e => {
-      if (e.target === document.getElementById("bulk-overlay")) closeBulkModal();
-    });
+    // 背景クリックで閉じる（mousedownも背景で始まった場合のみ。開いた直後の
+    // 合成クリックやドラッグ終了が背景に落ちて誤クローズするのを防ぐ）
+    {
+      const overlay = document.getElementById("bulk-overlay");
+      let downOnOverlay = false;
+      overlay.addEventListener("mousedown", e => { downOnOverlay = e.target === overlay; });
+      overlay.addEventListener("click", e => {
+        if (e.target === overlay && downOnOverlay) closeBulkModal();
+        downOnOverlay = false;
+      });
+    }
 
     function openBulkModal() {
       const overlay = document.getElementById("bulk-overlay");

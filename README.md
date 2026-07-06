@@ -10,7 +10,7 @@
 
 ```
 supabase/migrations/   DBスキーマ（Supabase SQL Editorで適用）
-web/                   公開する静的サイト本体
+docs/                   公開する静的サイト本体
   index.html           ログイン → マイログブック
   session.html         セッション詳細（?date=YYYY-MM-DD&location=場所）
   fish.html            My図鑑
@@ -25,7 +25,7 @@ scripts/               Notion → Supabase データ移行（1回きり）
 1. **Supabaseプロジェクト作成**: https://supabase.com/dashboard → New Project（無料枠でOK、リージョンは Tokyo 推奨）
 2. **スキーマ適用**: ダッシュボード → SQL Editor → `supabase/migrations/001_schema.sql` の中身を貼り付けて Run
 3. **サインアップ無効化（招待制にする）**: Authentication → Sign In / Up → 「Allow new users to sign up」を **OFF**
-4. **設定ファイル作成**: `web/js/config.js` を作成:
+4. **設定ファイル作成**: `docs/js/config.js` を作成:
    ```js
    export const SUPABASE_URL = "https://xxxx.supabase.co";   // Project Settings → API
    export const SUPABASE_ANON_KEY = "eyJ...";                 // anon (public) key
@@ -56,6 +56,6 @@ python3 migrate_from_notion.py             # 本実行
 ## ローカル開発
 
 ```bash
-python3 -m http.server 8080 --directory web
+python3 -m http.server 8080 --directory docs
 # → http://localhost:8080
 ```

@@ -5,4 +5,4 @@ __pycache__/
 *.pyc
 .DS_Store
 migration_report.json
-# 注: web/js/config.js（anonキー）は公開前提のためコミット対象
+# 注: docs/js/config.js（anonキー）は公開前提のためコミット対象
