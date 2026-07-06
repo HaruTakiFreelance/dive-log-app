@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>使い方 — Dive Log</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/logbook.css">
+  <style>
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-xs);
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.4);
+      text-decoration: none;
+      margin-bottom: var(--sp-l);
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: rgba(255,255,255,0.7); }
+
+    .page {
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow: 0 2px 6px var(--shadow), 0 8px 24px rgba(0,0,0,0.35);
+      position: relative; overflow: hidden;
+    }
+    .page::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(transparent, transparent 27px, rgba(51,51,51,0.05) 28px);
+      pointer-events: none;
+    }
+    .page-inner {
+      padding: var(--sp-xxl) calc(var(--sp-xxl) * var(--phi) * 0.5);
+      position: relative;
+    }
+    .guide-title {
+      font-family: 'Special Elite', monospace;
+      font-size: clamp(1.8rem, 5vw, 2.6rem);
+      color: var(--ink);
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: var(--sp-s);
+      margin-bottom: var(--sp-l);
+    }
+    .guide-section { margin-bottom: var(--sp-xl); }
+    .guide-h {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-l);
+      color: var(--accent-d);
+      margin-bottom: var(--sp-s);
+      letter-spacing: 0.04em;
+    }
+    .guide-body {
+      font-size: var(--fs-m);
+      color: var(--ink-fade);
+      line-height: var(--phi);
+    }
+    .guide-body p { margin-bottom: var(--sp-s); }
+    .guide-body ol, .guide-body ul {
+      margin: var(--sp-s) 0 var(--sp-s) 1.4em;
+    }
+    .guide-body li { margin-bottom: var(--sp-xs); }
+    .guide-body strong { color: var(--ink); }
+    .guide-tip {
+      background: rgba(61,107,138,0.08);
+      border-left: 3px solid var(--accent);
+      padding: var(--sp-s) var(--sp-m);
+      font-size: var(--fs-s);
+      margin-top: var(--sp-s);
+    }
+    .guide-kbd {
+      font-family: 'Special Elite', monospace;
+      font-size: 0.85em;
+      background: var(--paper-d);
+      padding: 1px 8px;
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+    @media (max-width: 600px) {
+      .page-inner { padding: var(--sp-xl) var(--sp-l); }
+    }
+  </style>
+</head>
+<body>
+<div class="sea" aria-hidden="true"></div>
+<div class="book">
+  <a class="back-link" href="./index.html">← ログブック一覧に戻る</a>
+  <div class="page">
+    <div class="page-inner">
+      <h1 class="guide-title">How to Use — 使い方</h1>
+
+      <div class="guide-section">
+        <div class="guide-h">1. ダイビングを記録する</div>
+        <div class="guide-body">
+          <ol>
+            <li>ホームの <span class="guide-kbd">記録する</span> →「ダイビングを記録」を開く</li>
+            <li>その日の共通情報（日付・場所・通算本数・ウェイト・バディ）を入力。前回の値が自動で入っています</li>
+            <li>1本ごとにポイント・費用・見れた魚・コメントを入力して保存。「+ もう1本追加」で連続入力できます</li>
+          </ol>
+          <p><strong>潜水時間・最大水深・平均水深</strong>は任意入力です。ダイブコンピューターのCSVを後で取り込む人は空欄のままでOK。ダイコンを使わない人はここに手入力してください。</p>
+          <div class="guide-tip">💡 天気・波高・水温は場所と日付から自動で取得されます（取得できない場合は空欄になります）</div>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <div class="guide-h">2. 魚を図鑑に登録する</div>
+        <div class="guide-body">
+          <p>ダイブ記録の「見れた魚」欄で名前を入力すると、自分の図鑑から検索されます。まだ図鑑にない魚は「新規追加」を選ぶと、保存時にまとめて図鑑登録できます。</p>
+          <p>あとから追加したい場合は「🐠 見れた魚を追加」から。写真の登録・変更は My図鑑の魚カードを開いて <span class="guide-kbd">📷 写真を変更</span> からできます。</p>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <div class="guide-h">3. 写真・動画・総評を追加する</div>
+        <div class="guide-body">
+          <ul>
+            <li><strong>写真</strong> — 「写真をアップロード」から。自動で縮小されるので大きい写真もそのままでOK</li>
+            <li><strong>YouTube動画</strong> — 「🎬 YouTube動画を追加」でダイブを選んでURLを貼るだけ</li>
+            <li><strong>その日の総評</strong> — 「📝 その日の総評を書く」またはセッションページの ✏️ から</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <div class="guide-h">4. ダイコンCSVで自動入力する</div>
+        <div class="guide-body">
+          <ol>
+            <li>先に「ダイビングを記録」で1本ずつのログを作っておく（潜水データは空欄で）</li>
+            <li>ダイブコンピューターからCSVをエクスポート</li>
+            <li>「📥 ダイコンCSVで自動入力」でファイルを選ぶと、同じ日付のログと照合されます</li>
+            <li>照合内容を確認してから更新実行。深度グラフも自動で付きます</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <div class="guide-h">5. あとから編集する</div>
+        <div class="guide-body">
+          <ul>
+            <li><strong>総評・ダイブのコメント</strong> — セッションページの文章の右下にある ✏️ をタップ</li>
+            <li><strong>図鑑の内容</strong> — My図鑑で魚カードを開き、一番下の <span class="guide-kbd">✎ 登録内容を編集する</span> をタップ</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <div class="guide-h">6. ログブックをSNSで共有する</div>
+        <div class="guide-body">
+          <p>ホームの <span class="guide-kbd">公開リンクをコピー</span> を押すと、閲覧専用の公開URLがコピーされます。このURLを知っている人は誰でも（ログイン不要で）あなたのログブックを見られますが、編集や記録はできません。</p>
+          <div class="guide-tip">⚠️ 公開したくない記録がある場合はURLの共有範囲に注意してください</div>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <div class="guide-h">7. データについて</div>
+        <div class="guide-body">
+          <p>あなたのログは<strong>あなたのアカウントでログインした人にしか見えません</strong>。他のメンバーのログを見ることはできず、逆も同じです（公開リンクを共有した場合を除く）。</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script type="module">
+  import { initSea } from "./js/sea.js";
+  initSea();
+</script>
+</body>
+</html>

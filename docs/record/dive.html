@@ -64,6 +64,18 @@
         </div>
 
         <div class="field">
+          <label>潜水データ（任意）</label>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+            <input type="number" id="d-duration" min="0" step="1" placeholder="潜水時間(分)">
+            <input type="number" id="d-maxdepth" min="0" step="0.1" placeholder="最大水深(m)">
+            <input type="number" id="d-avgdepth" min="0" step="0.1" placeholder="平均水深(m)">
+          </div>
+          <p style="font-size:.72rem; color:var(--sub); margin-top:4px;">
+            ダイコンCSVで後から自動入力する場合は空欄のままに（空欄のログがCSV照合の対象になります）
+          </p>
+        </div>
+
+        <div class="field">
           <label>見れた魚</label>
           <div class="fish-widget">
             <div class="fish-chips" id="fish-chips"></div>
@@ -267,6 +279,9 @@
           weight:      sess.weight,
           buddy:       sess.buddy || null,
           cost:        parseFloat(document.getElementById("d-cost").value) || null,
+          duration:    parseFloat(document.getElementById("d-duration").value) || null,
+          max_depth:   parseFloat(document.getElementById("d-maxdepth").value) || null,
+          avg_depth:   parseFloat(document.getElementById("d-avgdepth").value) || null,
           comment:     document.getElementById("d-comment").value.trim() || null,
           video_links: document.getElementById("d-videos").value.trim() || null,
           weather:     weather.weather ?? null,

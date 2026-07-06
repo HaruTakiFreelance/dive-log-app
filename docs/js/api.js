@@ -1,5 +1,6 @@
 // Supabase データアクセス層。全クエリはRLSにより自動的に「本人の行」に限定される。
 import { supabase } from "./supabaseClient.js";
+import { SUPABASE_URL } from "./config.js";
 
 function throwIf(error) {
   if (error) throw new Error(error.message);
@@ -209,6 +210,31 @@ export async function updateDiveFromComputer(diveId, d) {
   if (!Object.keys(patch).length) return;
   const { error } = await supabase.from("dives").update(patch).eq("id", diveId);
   throwIf(error);
+}
+
+// ── 公開共有 ────────────────────────────────────────
+
+/** 自分の共有トークンを取得（なければ作成） */
+export async function getOrCreateShareToken(userId) {
+  const { data, error } = await supabase.from("shares").select("token").maybeSingle();
+  throwIf(error);
+  if (data) return data.token;
+  const { data: created, error: e2 } = await supabase
+    .from("shares").insert({ user_id: userId }).select("token").single();
+  throwIf(e2);
+  return created.token;
+}
+
+/** 共有トークンからログブック一式を取得（未ログインでも可） */
+export async function fetchSharedLogbook(token) {
+  const { data, error } = await supabase.rpc("shared_logbook", { share_token: token });
+  throwIf(error);
+  return data;   // null = 無効なトークン
+}
+
+/** 公開バケットのURL（共有ページ用） */
+export function publicStorageUrl(bucket, path) {
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
 }
 
 /** 指定日の Max Depth 未入力ダイブを本数順で返す（CSV照合用） */

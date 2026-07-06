@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dive Log — Shared Session</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/logbook.css">
+  <style>
+    .page {
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow: 0 2px 6px var(--shadow), 0 8px 24px rgba(0,0,0,0.35);
+      position: relative; overflow: hidden;
+    }
+    .page::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(
+        transparent, transparent 27px, rgba(51,51,51,0.05) 28px
+      );
+      pointer-events: none;
+    }
+    .page-inner {
+      padding: var(--sp-xxl) calc(var(--sp-xxl) * var(--phi) * 0.5);
+      position: relative;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-xs);
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.12em;
+      color: rgba(255,255,255,0.4);
+      text-decoration: none;
+      margin-bottom: var(--sp-l);
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: rgba(255,255,255,0.7); }
+
+    .session-header {
+      display: flex;
+      align-items: flex-end;
+      gap: var(--sp-m);
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: var(--sp-s);
+      margin-bottom: var(--sp-l);
+    }
+    .session-date {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      color: var(--ink-faint);
+      letter-spacing: 0.15em;
+      line-height: 1;
+      margin-bottom: var(--sp-xs);
+    }
+    .session-location {
+      font-size: var(--fs-xxl);
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1;
+    }
+    .session-diverange {
+      margin-left: auto;
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-s);
+      color: var(--ink-fade);
+      letter-spacing: 0.1em;
+      white-space: nowrap;
+    }
+
+    .session-review {
+      font-style: italic;
+      color: var(--ink-fade);
+      font-size: var(--fs-m);
+      line-height: var(--phi);
+      border-left: 2px solid var(--paper-d);
+      padding-left: var(--sp-m);
+      margin-bottom: var(--sp-xl);
+      white-space: pre-wrap;
+    }
+
+    .photo-strip {
+      display: flex;
+      gap: var(--sp-s);
+      overflow-x: auto;
+      padding-bottom: var(--sp-s);
+      margin-bottom: var(--sp-xl);
+      scrollbar-width: thin;
+      scrollbar-color: var(--paper-d) transparent;
+      align-items: flex-end;
+    }
+    .photo-item { flex-shrink: 0; }
+    .photo-item a {
+      display: block;
+      border: 2px solid var(--paper-d);
+      box-shadow: 2px 3px 8px var(--shadow);
+      line-height: 0;
+    }
+    .photo-item img {
+      height: 200px;
+      width: auto;
+      display: block;
+      filter: sepia(12%) saturate(88%);
+      transition: filter 0.2s;
+    }
+    .photo-item a:hover img { filter: none; }
+    .photo-caption {
+      font-family: 'Caveat', cursive;
+      font-size: var(--fs-s);
+      color: var(--ink-fade);
+      text-align: center;
+      margin-top: var(--sp-xs);
+    }
+
+    .divider {
+      margin: var(--sp-xl) 0;
+      font-size: var(--fs-s);
+    }
+
+    /* ── ダイブエントリ ── */
+    .dive-entry {
+      border: 1px solid var(--paper-d);
+      background: rgba(255,255,255,0.22);
+      padding: var(--sp-m) var(--sp-l);
+      margin-bottom: var(--sp-m);
+      position: relative;
+    }
+    .dive-badge {
+      position: absolute;
+      top: var(--sp-m); left: -0.1rem;
+      background: var(--ink);
+      color: var(--paper);
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      padding: 2px var(--sp-s);
+      letter-spacing: 0.05em;
+    }
+    .dive-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-s);
+      align-items: center;
+      margin-left: calc(var(--sp-xxl) * 0.9);
+      margin-bottom: var(--sp-s);
+    }
+    .dive-point { font-weight: 700; font-size: var(--fs-l); color: var(--ink); }
+    .dive-chip {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      color: var(--ink-fade);
+      background: var(--paper-d);
+      padding: 2px var(--sp-s);
+      letter-spacing: 0.04em;
+    }
+    .dive-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sp-xs) var(--sp-xl);
+      margin-left: calc(var(--sp-xxl) * 0.9);
+      margin-bottom: var(--sp-s);
+    }
+    .dive-meta-item { font-size: var(--fs-s); color: var(--ink-fade); }
+    .dive-meta-item strong { color: var(--ink); font-weight: 600; }
+    .meta-label {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.08em;
+      color: var(--ink-faint);
+      margin-right: var(--sp-xs);
+    }
+
+    .depth-graph {
+      margin: var(--sp-s) 0 var(--sp-m) calc(var(--sp-xxl) * 0.9);
+      border-radius: 3px;
+      overflow: hidden;
+      opacity: 0.92;
+      max-width: 360px;
+    }
+
+    .dive-comment {
+      margin-left: calc(var(--sp-xxl) * 0.9);
+      font-style: italic;
+      font-size: var(--fs-m);
+      color: var(--ink-fade);
+      line-height: var(--phi);
+      margin-bottom: var(--sp-s);
+      white-space: pre-wrap;
+    }
+
+    /* ── インライン編集（鉛筆マーク） ── */
+    .edit-pencil {
+      background: none; border: none; cursor: pointer;
+      font-size: 0.9rem; color: var(--ink-faint);
+      padding: 2px 6px; line-height: 1;
+      transition: color 0.15s, opacity 0.15s;
+      opacity: 0.6;
+    }
+    .edit-pencil:hover { color: var(--ink); opacity: 1; }
+
+    /* 鉛筆をテキストブロックの外側右下に配置する行 */
+    .pencil-row {
+      display: flex;
+      justify-content: flex-end;
+      margin: -2px 0 var(--sp-s);
+    }
+    .pencil-row.indent { margin-left: calc(var(--sp-xxl) * 0.9); }
+
+    .add-text-link {
+      background: none; border: 1px dashed var(--paper-d); border-radius: 2px;
+      cursor: pointer;
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.08em;
+      color: var(--ink-faint);
+      padding: 5px 12px;
+      margin-bottom: var(--sp-s);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .add-text-link:hover { color: var(--ink-fade); border-color: var(--ink-faint); }
+    .add-text-link.indent { margin-left: calc(var(--sp-xxl) * 0.9); }
+
+    .inline-edit { margin-bottom: var(--sp-m); }
+    .inline-edit.indent { margin-left: calc(var(--sp-xxl) * 0.9); }
+    .inline-edit textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--paper-d);
+      border-radius: 2px;
+      background: rgba(255,255,255,0.55);
+      font-family: inherit;
+      font-style: italic;
+      font-size: var(--fs-m);
+      line-height: var(--phi);
+      color: var(--ink);
+      resize: vertical;
+    }
+    .inline-edit textarea:focus { outline: none; border-color: var(--accent); }
+    .inline-edit-actions {
+      display: flex; gap: var(--sp-s); justify-content: flex-end;
+      margin-top: var(--sp-xs);
+    }
+    .inline-edit-btn {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.1em;
+      padding: 6px 16px;
+      border-radius: 2px;
+      cursor: pointer;
+      border: 1px solid var(--paper-d);
+      background: none;
+      color: var(--ink-fade);
+    }
+    .inline-edit-btn.primary {
+      background: var(--accent-d);
+      border-color: var(--accent-d);
+      color: #deeaf3;
+    }
+    .inline-edit-btn:disabled { opacity: .5; cursor: default; }
+
+    /* ── スワイプスライダー共通 ── */
+    .slider-wrap { position: relative; }
+    .inf-slider {
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .inf-slider::-webkit-scrollbar { display: none; }
+    .inf-track { display: flex; }
+    .inf-slide { scroll-snap-align: start; flex-shrink: 0; }
+    .inf-dots {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-top: var(--sp-xs);
+    }
+    .inf-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--paper-d);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .inf-dot.active { background: var(--ink-fade); }
+
+    .dive-videos {
+      margin-left: calc(var(--sp-xxl) * 0.9);
+      margin-top: var(--sp-s);
+      position: relative;
+    }
+    .video-slide { flex-shrink: 0; }
+    .video-embed {
+      border: 2px solid var(--paper-d);
+      box-shadow: 2px 3px 8px var(--shadow);
+      overflow: hidden;
+      border-radius: 2px;
+    }
+    .video-embed iframe {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+    }
+    .video-link a {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-xs);
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-s);
+      color: var(--accent);
+      text-decoration: none;
+      border: 1px solid var(--accent);
+      padding: var(--sp-xs) var(--sp-s);
+    }
+    .video-link a:hover { background: var(--accent); color: #fff; }
+
+    /* ── 魚スライダー ── */
+    .fish-slider-wrap {
+      margin-left: calc(var(--sp-xxl) * 0.9);
+      margin-top: var(--sp-s);
+    }
+    .fish-slider-label {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.2em;
+      color: var(--ink-faint);
+      margin-bottom: var(--sp-xs);
+    }
+    .fish-inf-slider .inf-track { gap: var(--sp-s); }
+    .fish-slide { flex-shrink: 0; width: 140px; }
+    .fish-card {
+      background: rgba(255,255,255,0.28);
+      border: 1px solid var(--paper-d);
+      padding: var(--sp-s);
+      cursor: pointer;
+      transition: box-shadow 0.15s, transform 0.15s;
+    }
+    .fish-card:hover {
+      box-shadow: 0 4px 12px var(--shadow);
+      transform: translateY(-2px);
+    }
+    .fish-thumb {
+      width: 100%;
+      aspect-ratio: 1.618 / 1;
+      object-fit: cover;
+      display: block;
+      margin-bottom: var(--sp-xs);
+      border: 1px solid var(--paper-d);
+      filter: sepia(10%) saturate(88%);
+    }
+    .fish-thumb-placeholder {
+      width: 100%;
+      aspect-ratio: 1.618 / 1;
+      background: var(--paper-d);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      margin-bottom: var(--sp-xs);
+      opacity: 0.4;
+    }
+    .fish-name-ja { font-weight: 700; font-size: var(--fs-s); color: var(--ink); margin-bottom: 1px; }
+    .fish-name-en { font-size: var(--fs-xs); color: var(--ink-fade); }
+
+    /* ── 魚詳細モーダル ── */
+    .fish-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(20,14,6,0.82);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-l);
+    }
+    .fish-modal-overlay.open { display: flex; }
+    .fish-modal {
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow: 0 4px 12px var(--shadow), 0 16px 48px rgba(0,0,0,0.5);
+      max-width: 520px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+    }
+    .fish-modal::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: repeating-linear-gradient(transparent, transparent 27px, rgba(44,30,16,0.05) 28px);
+      pointer-events: none;
+    }
+    .fish-modal-close {
+      position: absolute; top: var(--sp-m); right: var(--sp-m);
+      background: none; border: none;
+      font-size: var(--fs-m); color: var(--ink-faint);
+      cursor: pointer; padding: 4px 8px; z-index: 1;
+      transition: color 0.15s;
+    }
+    .fish-modal-close:hover { color: var(--ink); }
+    .fish-modal-thumb-wrap {
+      width: 100%; aspect-ratio: 16/9;
+      overflow: hidden; background: var(--paper-d);
+      border-bottom: 2px solid var(--paper-d);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .fish-modal-thumb-wrap img {
+      width: 100%; height: 100%; object-fit: cover;
+      filter: sepia(8%) saturate(90%);
+    }
+    .fish-modal-thumb-placeholder { font-size: 4rem; opacity: 0.25; }
+    .fish-modal-inner { padding: var(--sp-xl); position: relative; }
+    .fish-modal-category {
+      font-family: 'Special Elite', monospace; font-size: var(--fs-xs);
+      letter-spacing: 0.12em; background: var(--accent); color: #deeaf3;
+      padding: 2px 10px; display: inline-block; margin-bottom: var(--sp-s);
+    }
+    .fish-modal-name-ja {
+      font-size: var(--fs-xxl); font-weight: 700; color: var(--ink);
+      line-height: 1.1; margin-bottom: var(--sp-xs);
+    }
+    .fish-modal-name-en {
+      font-family: 'Special Elite', monospace; font-size: var(--fs-m);
+      color: var(--ink-fade); letter-spacing: 0.06em; margin-bottom: 2px;
+    }
+    .fish-modal-name-sci { font-style: italic; font-size: var(--fs-s); color: var(--ink-faint); margin-bottom: var(--sp-l); }
+    .fish-modal-divider { border: none; border-top: 1px solid var(--paper-d); margin: var(--sp-m) 0; }
+    .fish-modal-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-s) var(--sp-l); margin-bottom: var(--sp-m); }
+    .fish-modal-meta-label { font-family: 'Special Elite', monospace; font-size: var(--fs-xs); letter-spacing: 0.12em; color: var(--ink-faint); margin-bottom: 2px; }
+    .fish-modal-meta-value { font-size: var(--fs-s); color: var(--ink-fade); }
+    .fish-modal-meta-value.stars { color: #b89200; }
+    .fish-modal-memo { font-style: italic; font-size: var(--fs-m); color: var(--ink-fade); line-height: var(--phi); border-left: 2px solid var(--paper-d); padding-left: var(--sp-m); margin-top: var(--sp-m); }
+
+    @media (max-width: 600px) {
+      .fish-modal-meta-grid { grid-template-columns: 1fr; }
+      .fish-modal-inner { padding: var(--sp-l); }
+      .page-inner { padding: var(--sp-xl) var(--sp-l); }
+      .session-location { font-size: var(--fs-xl); }
+      .dive-entry { padding: var(--sp-s) var(--sp-m); }
+      .dive-badge {
+        position: static;
+        display: inline-block;
+        margin-bottom: var(--sp-s);
+      }
+      .dive-header,
+      .dive-meta,
+      .dive-comment,
+      .dive-fish-list,
+      .fish-slider-wrap,
+      .dive-videos,
+      .pencil-row.indent,
+      .add-text-link.indent,
+      .inline-edit.indent {
+        margin-left: 0;
+      }
+      .depth-graph { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+<div class="sea" aria-hidden="true"></div>
+<div class="book">
+  <a class="back-link" href="#" id="back-link">← ログブック一覧に戻る</a>
+  <div class="loading-note" id="loading">— LOADING —</div>
+  <div class="page" id="page" hidden>
+    <div class="page-inner" id="page-inner"></div>
+  </div>
+</div>
+
+<!-- 魚詳細モーダル -->
+<div class="fish-modal-overlay" id="fish-modal-overlay">
+  <div class="fish-modal">
+    <button class="fish-modal-close" id="fm-close">✕</button>
+    <div class="fish-modal-thumb-wrap" id="fm-thumb-wrap">
+      <div class="fish-modal-thumb-placeholder">🐠</div>
+    </div>
+    <div class="fish-modal-inner">
+      <div id="fm-category" class="fish-modal-category" style="display:none"></div>
+      <div id="fm-name-ja" class="fish-modal-name-ja"></div>
+      <div id="fm-name-en" class="fish-modal-name-en" style="display:none"></div>
+      <div id="fm-name-sci" class="fish-modal-name-sci" style="display:none"></div>
+      <hr class="fish-modal-divider">
+      <div class="fish-modal-meta-grid">
+        <div id="fm-order-wrap" style="display:none">
+          <div class="fish-modal-meta-label">ORDER / FAMILY</div>
+          <div class="fish-modal-meta-value" id="fm-order"></div>
+        </div>
+        <div id="fm-first-wrap" style="display:none">
+          <div class="fish-modal-meta-label">FIRST SEEN</div>
+          <div class="fish-modal-meta-value" id="fm-first"></div>
+        </div>
+        <div id="fm-rarity-wrap" style="display:none">
+          <div class="fish-modal-meta-label">RARITY</div>
+          <div class="fish-modal-meta-value stars" id="fm-rarity"></div>
+        </div>
+        <div id="fm-popularity-wrap" style="display:none">
+          <div class="fish-modal-meta-label">POPULARITY</div>
+          <div class="fish-modal-meta-value stars" id="fm-popularity"></div>
+        </div>
+        <div id="fm-photo-wrap" style="display:none">
+          <div class="fish-modal-meta-label">PHOTO EASE</div>
+          <div class="fish-modal-meta-value stars" id="fm-photo"></div>
+        </div>
+      </div>
+      <div id="fm-memo" class="fish-modal-memo" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ライトボックス -->
+<div id="lightbox" style="
+  display:none;
+  position:fixed; inset:0; z-index:9000;
+  background:rgba(0,0,0,0.88);
+  align-items:center; justify-content:center;
+">
+  <button id="lb-close" style="
+    position:fixed; top:1.2rem; right:1.4rem;
+    background:none; border:none; color:#fff;
+    font-size:2rem; line-height:1; cursor:pointer;
+    opacity:0.75; z-index:9001;
+  ">✕</button>
+  <img id="lb-img" src="" alt="" style="
+    max-width:92vw; max-height:90vh;
+    object-fit:contain;
+    box-shadow:0 8px 40px rgba(0,0,0,0.6);
+    border-radius:1px;
+    display:block;
+  ">
+</div>
+
+<script type="module">
+  import { fetchSharedLogbook, publicStorageUrl } from "./js/api.js";
+  import { generateDepthSvg } from "./js/depthSvg.js";
+  import { initSea } from "./js/sea.js";
+  import { esc } from "./js/ui.js";
+
+  initSea();
+
+  const params    = new URLSearchParams(location.search);
+  const token     = params.get("t");
+  const date      = params.get("date");
+  const location_ = params.get("location") ?? "";
+  document.getElementById("back-link").href = `./share.html?t=${encodeURIComponent(token ?? "")}`;
+
+  const loadingEl = document.getElementById("loading");
+  if (!token) { loadingEl.textContent = "— 共有リンクが正しくありません —"; throw new Error("no token"); }
+
+  const book = await fetchSharedLogbook(token);
+  if (!book) { loadingEl.textContent = "— この共有リンクは無効です —"; throw new Error("invalid token"); }
+
+  const fishByDive = new Map();
+  book.dive_fish.forEach(r => {
+    if (!fishByDive.has(r.dive_id)) fishByDive.set(r.dive_id, []);
+    fishByDive.get(r.dive_id).push(r.fish_id);
+  });
+
+  const dives = book.dives
+    .filter(d => d.date === date && d.location === location_)
+    .map(d => ({ ...d, fish_ids: fishByDive.get(d.id) ?? [] }))
+    .sort((a, b) => (a.dive_number || 0) - (b.dive_number || 0));
+
+  if (!dives.length) {
+    loadingEl.textContent = "— セッションが見つかりません —";
+    throw new Error("session not found");
+  }
+
+  const fishIndex  = new Map(book.fish.map(f => [f.id, f]));
+  const profileMap = new Map(book.profiles.map(p => [p.dive_id, p]));
+  const review     = book.reviews.find(r => r.date === date && r.location === location_)?.text ?? "";
+  const photos     = book.photos.filter(p => p.date === date && p.location === location_);
+
+  const thumbUrl = f => {
+    if (!f.thumbnail_url) return "";
+    return f.thumbnail_url.startsWith("storage:")
+      ? publicStorageUrl("fish-thumbs", f.thumbnail_url.slice(8))
+      : f.thumbnail_url;
+  };
+
+  const [y, m, d_] = date.split("-");
+  const numbers = dives.map(d => d.dive_number).filter(Boolean);
+  const range = numbers.length > 1
+    ? `${Math.min(...numbers)}〜${Math.max(...numbers)}本目`
+    : numbers.length ? `${numbers[0]}本目` : "";
+
+  const youtubeEmbed = url => {
+    const m1 = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([\w-]{6,})/);
+    return m1 ? `https://www.youtube.com/embed/${m1[1]}` : null;
+  };
+
+  // ── HTML構築（閲覧専用: 編集UIなし）──
+  let html = `
+    <div class="session-header">
+      <div>
+        <div class="session-date">${esc(y)} / ${+m}月${+d_}日</div>
+        <div class="session-location">${esc(location_)}</div>
+      </div>
+      ${range ? `<div class="session-diverange">#${esc(range)}</div>` : ""}
+    </div>`;
+
+  if (review) html += `<div class="session-review">${esc(review)}</div>`;
+
+  if (photos.length) {
+    html += `<div class="photo-strip">` + photos.map(p => {
+      const url = publicStorageUrl("photos", p.storage_path);
+      return `<div class="photo-item">
+        <a href="#" class="lb-trigger" data-src="${esc(url)}"><img src="${esc(url)}" alt="${esc(p.caption ?? "")}" loading="lazy"></a>
+        ${p.caption ? `<div class="photo-caption">${esc(p.caption)}</div>` : ""}
+      </div>`;
+    }).join("") + `</div>`;
+  }
+
+  html += `<div class="divider">· · ·</div>`;
+
+  for (const d of dives) {
+    const prof = profileMap.get(d.id);
+    const depthSvg = prof?.profile?.length
+      ? generateDepthSvg(prof.profile, d.avg_depth, prof.warning ?? "",
+          `${d.date.replaceAll("-", "")}_${d.id.slice(0, 6)}`, d.duration)
+      : "";
+
+    const fishInDive = d.fish_ids.map(id => fishIndex.get(id)).filter(Boolean);
+    const videos = (d.video_links ?? "").split("\n").map(s => s.trim()).filter(Boolean)
+      .map(url => ({ url, embed: youtubeEmbed(url) }));
+
+    html += `<div class="dive-entry">
+      <div class="dive-badge">#${d.dive_number ?? "?"}</div>
+      <div class="dive-header">
+        <span class="dive-point">${esc(d.point || d.location)}</span>
+        ${d.weather ? `<span class="dive-chip">${esc(d.weather)}</span>` : ""}
+        ${d.water_temp != null ? `<span class="dive-chip">水温 ${d.water_temp}℃</span>` : ""}
+      </div>
+      <div class="dive-meta">
+        ${d.start_time && d.end_time ? `<span class="dive-meta-item"><span class="meta-label">潜水時間</span><strong>${esc(d.start_time)}–${esc(d.end_time)}</strong>${d.duration ? ` (${d.duration}min)` : ""}</span>` : ""}
+        ${d.max_depth != null ? `<span class="dive-meta-item"><span class="meta-label">最大水深</span><strong>${d.max_depth}m</strong></span>` : ""}
+        ${d.avg_depth != null ? `<span class="dive-meta-item"><span class="meta-label">平均水深</span>${d.avg_depth}m</span>` : ""}
+        ${d.weight != null ? `<span class="dive-meta-item"><span class="meta-label">ウェイト</span>${d.weight}kg</span>` : ""}
+        ${d.wave_height != null ? `<span class="dive-meta-item"><span class="meta-label">波高</span>${d.wave_height}m</span>` : ""}
+        ${d.buddy ? `<span class="dive-meta-item"><span class="meta-label">バディ</span>${esc(d.buddy)}</span>` : ""}
+      </div>
+      ${depthSvg ? `<div class="depth-graph">${depthSvg}</div>` : ""}
+      ${d.comment ? `<div class="dive-comment">"${esc(d.comment)}"</div>` : ""}
+      ${fishInDive.length ? `
+      <div class="fish-slider-wrap">
+        <div class="fish-slider-label">── 見れた魚 ──</div>
+        <div class="slider-wrap">
+          <div class="inf-slider fish-inf-slider">
+            <div class="inf-track">
+              ${fishInDive.map(f => `
+              <div class="fish-slide inf-slide">
+                <div class="fish-card" data-fish-id="${esc(f.id)}">
+                  ${thumbUrl(f)
+                    ? `<img class="fish-thumb" src="${esc(thumbUrl(f))}" alt="${esc(f.name)}" loading="lazy">`
+                    : `<div class="fish-thumb-placeholder">🐠</div>`}
+                  <div class="fish-name-ja">${esc(f.name)}</div>
+                  ${f.english_name ? `<div class="fish-name-en">${esc(f.english_name)}</div>` : ""}
+                </div>
+              </div>`).join("")}
+            </div>
+          </div>
+          ${fishInDive.length > 1 ? `<div class="inf-dots">${fishInDive.map((_, i) => `<span class="inf-dot${i === 0 ? " active" : ""}"></span>`).join("")}</div>` : ""}
+        </div>
+      </div>` : ""}
+      ${videos.length ? `
+      <div class="dive-videos">
+        <div class="slider-wrap">
+          <div class="inf-slider video-inf-slider">
+            <div class="inf-track">
+              ${videos.map(v => v.embed
+                ? `<div class="video-slide inf-slide"><div class="video-embed"><iframe src="${esc(v.embed)}" frameborder="0" allowfullscreen loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe></div></div>`
+                : `<div class="video-slide inf-slide"><div class="video-link"><a href="${esc(v.url)}" target="_blank" rel="noopener">🎬 動画を見る</a></div></div>`
+              ).join("")}
+            </div>
+          </div>
+          ${videos.length > 1 ? `<div class="inf-dots">${videos.map((_, i) => `<span class="inf-dot${i === 0 ? " active" : ""}"></span>`).join("")}</div>` : ""}
+        </div>
+      </div>` : ""}
+    </div>`;
+  }
+
+  document.getElementById("page-inner").innerHTML = html;
+  loadingEl.hidden = true;
+  document.getElementById("page").hidden = false;
+  document.title = `${+m}月${+d_}日 ${location_} — Dive Log (Shared)`;
+
+  // ── スライダー ──
+  document.querySelectorAll(".video-inf-slider").forEach(slider => {
+    const w = slider.offsetWidth;
+    slider.querySelectorAll(".video-slide").forEach(s => { s.style.minWidth = w + "px"; });
+  });
+  document.querySelectorAll(".inf-slider").forEach(slider => {
+    const wrap = slider.closest(".slider-wrap") || slider;
+    const dots = [...wrap.querySelectorAll(".inf-dot")];
+    if (!dots.length) return;
+    const slides = [...slider.querySelectorAll(".inf-slide")];
+    slider.addEventListener("scroll", () => {
+      let closest = 0, minDist = Infinity;
+      slides.forEach((s, i) => {
+        const dist = Math.abs(s.offsetLeft - slider.scrollLeft);
+        if (dist < minDist) { minDist = dist; closest = i; }
+      });
+      dots.forEach((dot, i) => dot.classList.toggle("active", i === closest));
+    }, { passive: true });
+    dots.forEach((dot, i) => dot.addEventListener("click", () => {
+      slides[i] && slider.scrollTo({ left: slides[i].offsetLeft, behavior: "smooth" });
+    }));
+  });
+
+  // ── 魚モーダル（閲覧のみ）──
+  const fmSet = (id, value, wrapId) => {
+    const el = document.getElementById(id);
+    const wrap = wrapId ? document.getElementById(wrapId) : el;
+    if (value) { el.textContent = value; wrap.style.display = ""; }
+    else wrap.style.display = "none";
+  };
+
+  function openFishModal(fishId) {
+    const f = fishIndex.get(fishId);
+    if (!f) return;
+    const thumbWrap = document.getElementById("fm-thumb-wrap");
+    const url = thumbUrl(f);
+    if (url) {
+      thumbWrap.innerHTML = "";
+      const img = document.createElement("img");
+      img.src = url; img.alt = f.name; img.loading = "lazy";
+      img.addEventListener("error", () => {
+        thumbWrap.innerHTML = '<div class="fish-modal-thumb-placeholder">🐠</div>';
+      });
+      thumbWrap.appendChild(img);
+    } else {
+      thumbWrap.innerHTML = '<div class="fish-modal-thumb-placeholder">🐠</div>';
+    }
+    fmSet("fm-category", f.category);
+    fmSet("fm-name-ja", f.name);
+    fmSet("fm-name-en", f.english_name);
+    fmSet("fm-name-sci", f.scientific_name);
+    fmSet("fm-order", [f.order_name, f.family, f.genus].filter(Boolean).join(" / "), "fm-order-wrap");
+    fmSet("fm-first", f.first_seen, "fm-first-wrap");
+    fmSet("fm-rarity", f.rarity, "fm-rarity-wrap");
+    fmSet("fm-popularity", f.popularity, "fm-popularity-wrap");
+    fmSet("fm-photo", f.photo_ease, "fm-photo-wrap");
+    fmSet("fm-memo", f.memo);
+    document.getElementById("fish-modal-overlay").classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function closeFishModal() {
+    document.getElementById("fish-modal-overlay").classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  document.querySelectorAll(".fish-card").forEach(card => {
+    card.addEventListener("click", () => openFishModal(card.dataset.fishId));
+  });
+  document.getElementById("fm-close").addEventListener("click", closeFishModal);
+  document.getElementById("fish-modal-overlay").addEventListener("click", e => {
+    if (e.target === document.getElementById("fish-modal-overlay")) closeFishModal();
+  });
+
+  // ── ライトボックス ──
+  const lightbox = document.getElementById("lightbox");
+  function closeLightbox() {
+    lightbox.style.display = "none";
+    document.getElementById("lb-img").src = "";
+    document.body.style.overflow = "";
+  }
+  document.querySelectorAll(".lb-trigger").forEach(a => {
+    a.addEventListener("click", e => {
+      e.preventDefault();
+      document.getElementById("lb-img").src = a.dataset.src;
+      lightbox.style.display = "flex";
+      document.body.style.overflow = "hidden";
+    });
+  });
+  document.getElementById("lb-close").addEventListener("click", closeLightbox);
+  lightbox.addEventListener("click", e => { if (e.target === lightbox) closeLightbox(); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") { closeFishModal(); closeLightbox(); }
+  });
+</script>
+</body>
+</html>
