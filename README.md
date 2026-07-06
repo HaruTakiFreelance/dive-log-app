@@ -23,22 +23,21 @@ scripts/               Notion → Supabase データ移行（1回きり）
 ## 初回セットアップ（管理者）
 
 1. **Supabaseプロジェクト作成**: https://supabase.com/dashboard → New Project（無料枠でOK、リージョンは Tokyo 推奨）
-2. **スキーマ適用**: ダッシュボード → SQL Editor → `supabase/migrations/001_schema.sql` の中身を貼り付けて Run
-3. **サインアップ無効化（招待制にする）**: Authentication → Sign In / Up → 「Allow new users to sign up」を **OFF**
+2. **スキーマ適用**: ダッシュボード → SQL Editor で `supabase/migrations/` のSQLを番号順に貼り付けて Run
+3. **Googleログイン設定**: Google Cloud ConsoleでOAuthクライアントを作成し、
+   Authentication → Sign In / Providers → Google に クライアントID/シークレットを設定。
+   「Allow new users to sign up」は **ON**（Googleアカウントがあれば誰でも登録できる）
 4. **設定ファイル作成**: `docs/js/config.js` を作成:
    ```js
    export const SUPABASE_URL = "https://xxxx.supabase.co";   // Project Settings → API
    export const SUPABASE_ANON_KEY = "eyJ...";                 // anon (public) key
    ```
    ※ anonキーはブラウザに配る前提の公開キー。データ保護はRLSが担う
-5. **メンバー招待**: Authentication → Users → Invite user（メールアドレスを入力）
-   招待メールのリンクからパスワードを設定してもらえば完了
 
 ## メンバーの使い方
 
-1. 管理者から届いた招待メールでパスワードを設定
-2. サイトURLを開いてログイン
-3. スマホならブラウザの「ホーム画面に追加」でアプリのように使える
+1. サイトURLを開いて「Googleでログイン」を押す（初回で自動的にアカウント作成）
+2. スマホならブラウザの「ホーム画面に追加」でアプリのように使える
 
 ## データ移行（旧dive-logから・1回きり）
 
