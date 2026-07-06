@@ -195,13 +195,20 @@
     /* ── インライン編集（鉛筆マーク） ── */
     .edit-pencil {
       background: none; border: none; cursor: pointer;
-      font-size: 0.85em; color: var(--ink-faint);
-      padding: 0 6px; line-height: 1;
+      font-size: 0.9rem; color: var(--ink-faint);
+      padding: 2px 6px; line-height: 1;
       transition: color 0.15s, opacity 0.15s;
-      opacity: 0.55;
-      vertical-align: baseline;
+      opacity: 0.6;
     }
     .edit-pencil:hover { color: var(--ink); opacity: 1; }
+
+    /* 鉛筆をテキストブロックの外側右下に配置する行 */
+    .pencil-row {
+      display: flex;
+      justify-content: flex-end;
+      margin: -2px 0 var(--sp-s);
+    }
+    .pencil-row.indent { margin-left: calc(var(--sp-xxl) * 0.9); }
 
     .add-text-link {
       background: none; border: 1px dashed var(--paper-d); border-radius: 2px;
@@ -444,7 +451,10 @@
       .dive-comment,
       .dive-fish-list,
       .fish-slider-wrap,
-      .dive-videos {
+      .dive-videos,
+      .pencil-row.indent,
+      .add-text-link.indent,
+      .inline-edit.indent {
         margin-left: 0;
       }
       .depth-graph { margin-left: 0; }
@@ -595,7 +605,8 @@
 
   html += `<div class="editable-block" id="review-block">
     ${review
-      ? `<div class="session-review" id="review-text">${esc(review)}<button type="button" class="edit-pencil" data-edit="review" aria-label="総評を編集" title="編集">✏️</button></div>`
+      ? `<div class="session-review" id="review-text">${esc(review)}</div>
+         <div class="pencil-row"><button type="button" class="edit-pencil" data-edit="review" aria-label="総評を編集" title="編集">✏️</button></div>`
       : `<button type="button" class="add-text-link" data-edit="review">✏️ その日の総評を書く</button>`}
   </div>`;
 
@@ -641,7 +652,8 @@
       ${depthSvg ? `<div class="depth-graph">${depthSvg}</div>` : ""}
       <div class="editable-block comment-block">
         ${d.comment
-          ? `<div class="dive-comment">"${esc(d.comment)}"<button type="button" class="edit-pencil" data-edit="comment" aria-label="コメントを編集" title="編集">✏️</button></div>`
+          ? `<div class="dive-comment">"${esc(d.comment)}"</div>
+             <div class="pencil-row indent"><button type="button" class="edit-pencil" data-edit="comment" aria-label="コメントを編集" title="編集">✏️</button></div>`
           : `<button type="button" class="add-text-link indent" data-edit="comment">✏️ コメントを追加</button>`}
       </div>
       ${fishInDive.length ? `
@@ -833,11 +845,13 @@
   function renderTextBlock(block, kind, text) {
     if (kind === "review") {
       block.innerHTML = text
-        ? `<div class="session-review" id="review-text">${esc(text)}<button type="button" class="edit-pencil" data-edit="review" aria-label="総評を編集" title="編集">✏️</button></div>`
+        ? `<div class="session-review" id="review-text">${esc(text)}</div>
+           <div class="pencil-row"><button type="button" class="edit-pencil" data-edit="review" aria-label="総評を編集" title="編集">✏️</button></div>`
         : `<button type="button" class="add-text-link" data-edit="review">✏️ その日の総評を書く</button>`;
     } else {
       block.innerHTML = text
-        ? `<div class="dive-comment">"${esc(text)}"<button type="button" class="edit-pencil" data-edit="comment" aria-label="コメントを編集" title="編集">✏️</button></div>`
+        ? `<div class="dive-comment">"${esc(text)}"</div>
+           <div class="pencil-row indent"><button type="button" class="edit-pencil" data-edit="comment" aria-label="コメントを編集" title="編集">✏️</button></div>`
         : `<button type="button" class="add-text-link indent" data-edit="comment">✏️ コメントを追加</button>`;
     }
   }
