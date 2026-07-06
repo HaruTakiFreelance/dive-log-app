@@ -275,15 +275,23 @@
   document.getElementById("btn-share").addEventListener("click", async (e) => {
     e.preventDefault();
     const label = document.getElementById("share-label");
+    let url;
     try {
       const token = await getOrCreateShareToken(user.id);
-      const url = new URL(`./share.html?t=${token}`, location.href).href;
-      await navigator.clipboard.writeText(url);
-      label.textContent = "✅ コピーしました";
+      url = new URL(`./share.html?t=${token}`, location.href).href;
     } catch (err) {
       label.textContent = "エラー（再試行）";
-      alert("公開リンクの作成に失敗しました: " + err.message +
-        "\n（管理者がまだ共有機能のSQLを適用していない可能性があります）");
+      alert("公開リンクの作成に失敗しました: " + err.message);
+      setTimeout(() => { label.textContent = "公開リンクをコピー"; }, 3000);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      label.textContent = "✅ コピーしました";
+    } catch {
+      // クリップボードが使えない環境ではURLを表示して手動コピーしてもらう
+      window.prompt("このURLをコピーしてください:", url);
+      label.textContent = "公開リンク";
     }
     setTimeout(() => { label.textContent = "公開リンクをコピー"; }, 3000);
   });
