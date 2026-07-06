@@ -2,7 +2,7 @@
 
 サークルメンバー向けのダイビングログアプリ。アカウントでログインすると**自分のログだけ**が見える。
 
-- フロントエンド: 静的サイト（vanilla JS + supabase-js）。GitHub Pages で配信
+- フロントエンド: 静的サイト（vanilla JS + supabase-js）。Cloudflare Pages で配信（https://bubble-ring.pages.dev）
 - バックエンド: Supabase（認証 / Postgres + RLS / 写真ストレージ）
 - サーバー運用: 不要（すべてマネージド・無料枠）
 
@@ -51,6 +51,12 @@ python3 migrate_from_notion.py             # 本実行
 ```
 
 ⚠️ `SUPABASE_SERVICE_ROLE_KEY` はRLSを無視できる管理キー。`.env` 以外に置かない・コミットしない。
+
+## デプロイ
+
+```bash
+./deploy.sh   # docs/ を bubble-ring.pages.dev に公開（要: wrangler ログイン済み）
+```
 
 ## ローカル開発
 
