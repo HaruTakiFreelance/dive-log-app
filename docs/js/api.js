@@ -103,6 +103,16 @@ export async function updateFishThumbnail(fishId, thumbnailUrl) {
   throwIf(error);
 }
 
+export async function updateFish(fishId, patch) {
+  const { error } = await supabase.from("fish").update(patch).eq("id", fishId);
+  throwIf(error);
+}
+
+export async function updateDive(diveId, patch) {
+  const { error } = await supabase.from("dives").update(patch).eq("id", diveId);
+  throwIf(error);
+}
+
 // ── セッション総評 ──────────────────────────────────
 
 export async function listReviews() {

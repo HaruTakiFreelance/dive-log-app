@@ -192,6 +192,69 @@
       white-space: pre-wrap;
     }
 
+    /* ── インライン編集（鉛筆マーク） ── */
+    .edit-pencil {
+      background: none; border: none; cursor: pointer;
+      font-size: 0.85em; color: var(--ink-faint);
+      padding: 0 6px; line-height: 1;
+      transition: color 0.15s, opacity 0.15s;
+      opacity: 0.55;
+      vertical-align: baseline;
+    }
+    .edit-pencil:hover { color: var(--ink); opacity: 1; }
+
+    .add-text-link {
+      background: none; border: 1px dashed var(--paper-d); border-radius: 2px;
+      cursor: pointer;
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.08em;
+      color: var(--ink-faint);
+      padding: 5px 12px;
+      margin-bottom: var(--sp-s);
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .add-text-link:hover { color: var(--ink-fade); border-color: var(--ink-faint); }
+    .add-text-link.indent { margin-left: calc(var(--sp-xxl) * 0.9); }
+
+    .inline-edit { margin-bottom: var(--sp-m); }
+    .inline-edit.indent { margin-left: calc(var(--sp-xxl) * 0.9); }
+    .inline-edit textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--paper-d);
+      border-radius: 2px;
+      background: rgba(255,255,255,0.55);
+      font-family: inherit;
+      font-style: italic;
+      font-size: var(--fs-m);
+      line-height: var(--phi);
+      color: var(--ink);
+      resize: vertical;
+    }
+    .inline-edit textarea:focus { outline: none; border-color: var(--accent); }
+    .inline-edit-actions {
+      display: flex; gap: var(--sp-s); justify-content: flex-end;
+      margin-top: var(--sp-xs);
+    }
+    .inline-edit-btn {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.1em;
+      padding: 6px 16px;
+      border-radius: 2px;
+      cursor: pointer;
+      border: 1px solid var(--paper-d);
+      background: none;
+      color: var(--ink-fade);
+    }
+    .inline-edit-btn.primary {
+      background: var(--accent-d);
+      border-color: var(--accent-d);
+      color: #deeaf3;
+    }
+    .inline-edit-btn:disabled { opacity: .5; cursor: default; }
+
     /* ── スワイプスライダー共通 ── */
     .slider-wrap { position: relative; }
     .inf-slider {
@@ -463,13 +526,13 @@
 <script type="module">
   import { requireAuth } from "./js/supabaseClient.js";
   import { listDives, listFish, listPhotos, listReviews, listDepthProfiles,
-           signedPhotoUrls, signedThumbUrls } from "./js/api.js";
+           signedPhotoUrls, signedThumbUrls, updateDive, upsertReview } from "./js/api.js";
   import { generateDepthSvg } from "./js/depthSvg.js";
   import { initSea } from "./js/sea.js";
   import { esc } from "./js/ui.js";
 
   initSea();
-  await requireAuth();
+  const user = await requireAuth();
 
   const params   = new URLSearchParams(location.search);
   const date     = params.get("date");
@@ -530,7 +593,11 @@
       ${range ? `<div class="session-diverange">#${esc(range)}</div>` : ""}
     </div>`;
 
-  if (review) html += `<div class="session-review">${esc(review)}</div>`;
+  html += `<div class="editable-block" id="review-block">
+    ${review
+      ? `<div class="session-review" id="review-text">${esc(review)}<button type="button" class="edit-pencil" data-edit="review" aria-label="総評を編集" title="編集">✏️</button></div>`
+      : `<button type="button" class="add-text-link" data-edit="review">✏️ その日の総評を書く</button>`}
+  </div>`;
 
   if (photos.length) {
     html += `<div class="photo-strip">` + photos.map(p => {
@@ -556,7 +623,7 @@
     const videos = (d.video_links ?? "").split("\n").map(s => s.trim()).filter(Boolean)
       .map(url => ({ url, embed: youtubeEmbed(url) }));
 
-    html += `<div class="dive-entry">
+    html += `<div class="dive-entry" data-dive-id="${esc(d.id)}">
       <div class="dive-badge">#${d.dive_number ?? "?"}</div>
       <div class="dive-header">
         <span class="dive-point">${esc(d.point || d.location)}</span>
@@ -572,7 +639,11 @@
         ${d.buddy ? `<span class="dive-meta-item"><span class="meta-label">バディ</span>${esc(d.buddy)}</span>` : ""}
       </div>
       ${depthSvg ? `<div class="depth-graph">${depthSvg}</div>` : ""}
-      ${d.comment ? `<div class="dive-comment">"${esc(d.comment)}"</div>` : ""}
+      <div class="editable-block comment-block">
+        ${d.comment
+          ? `<div class="dive-comment">"${esc(d.comment)}"<button type="button" class="edit-pencil" data-edit="comment" aria-label="コメントを編集" title="編集">✏️</button></div>`
+          : `<button type="button" class="add-text-link indent" data-edit="comment">✏️ コメントを追加</button>`}
+      </div>
       ${fishInDive.length ? `
       <div class="fish-slider-wrap">
         <div class="fish-slider-label">── 見れた魚 ──</div>
@@ -708,6 +779,79 @@
   lightbox.addEventListener("click", e => { if (e.target === lightbox) closeLightbox(); });
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") { closeFishModal(); closeLightbox(); }
+  });
+
+  // ── インライン編集（総評・ダイブコメント）──
+  const diveById = new Map(dives.map(d => [d.id, d]));
+  let reviewText = review;
+
+  function startInlineEdit(block, kind, diveId) {
+    if (block.querySelector(".inline-edit")) return;   // 既に編集中
+    const initial = kind === "review" ? reviewText : (diveById.get(diveId)?.comment ?? "");
+    const indent  = kind === "comment" ? " indent" : "";
+    const original = block.innerHTML;
+
+    block.innerHTML = `
+      <div class="inline-edit${indent}">
+        <textarea rows="4" placeholder="${kind === "review" ? "その日のダイビング全体を振り返って..." : "このダイブのコメント・メモ"}"></textarea>
+        <div class="inline-edit-actions">
+          <button type="button" class="inline-edit-btn" data-act="cancel">キャンセル</button>
+          <button type="button" class="inline-edit-btn primary" data-act="save">保存</button>
+        </div>
+      </div>`;
+    const ta = block.querySelector("textarea");
+    ta.value = initial;
+    ta.focus();
+
+    block.querySelector('[data-act="cancel"]').addEventListener("click", () => {
+      block.innerHTML = original;
+    });
+
+    block.querySelector('[data-act="save"]').addEventListener("click", async () => {
+      const btn = block.querySelector('[data-act="save"]');
+      const text = ta.value.trim();
+      btn.disabled = true;
+      btn.textContent = "保存中...";
+      try {
+        if (kind === "review") {
+          await upsertReview(user.id, date, location_, text);
+          reviewText = text;
+        } else {
+          await updateDive(diveId, { comment: text || null });
+          const d = diveById.get(diveId);
+          if (d) d.comment = text || null;
+        }
+        renderTextBlock(block, kind, text);
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = "保存";
+        alert("保存に失敗しました: " + e.message);
+      }
+    });
+  }
+
+  function renderTextBlock(block, kind, text) {
+    if (kind === "review") {
+      block.innerHTML = text
+        ? `<div class="session-review" id="review-text">${esc(text)}<button type="button" class="edit-pencil" data-edit="review" aria-label="総評を編集" title="編集">✏️</button></div>`
+        : `<button type="button" class="add-text-link" data-edit="review">✏️ その日の総評を書く</button>`;
+    } else {
+      block.innerHTML = text
+        ? `<div class="dive-comment">"${esc(text)}"<button type="button" class="edit-pencil" data-edit="comment" aria-label="コメントを編集" title="編集">✏️</button></div>`
+        : `<button type="button" class="add-text-link indent" data-edit="comment">✏️ コメントを追加</button>`;
+    }
+  }
+
+  document.getElementById("page-inner").addEventListener("click", e => {
+    const trigger = e.target.closest("[data-edit]");
+    if (!trigger) return;
+    const kind = trigger.dataset.edit;
+    if (kind === "review") {
+      startInlineEdit(document.getElementById("review-block"), "review");
+    } else {
+      const entry = trigger.closest(".dive-entry");
+      startInlineEdit(entry.querySelector(".comment-block"), "comment", entry.dataset.diveId);
+    }
   });
 </script>
 </body>

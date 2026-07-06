@@ -315,6 +315,85 @@
       border-left: 2px solid var(--paper-d);
       padding-left: var(--sp-m);
       margin-top: var(--sp-m);
+      white-space: pre-wrap;
+    }
+
+    /* ── 編集UI ── */
+    .edit-pencil {
+      background: none; border: none; cursor: pointer;
+      font-size: 1rem; color: var(--ink-faint);
+      padding: 4px 8px; line-height: 1;
+      transition: color 0.15s;
+      vertical-align: middle;
+    }
+    .edit-pencil:hover { color: var(--ink); }
+    .modal-name-row { display: flex; align-items: baseline; gap: var(--sp-xs); }
+
+    .thumb-actions {
+      display: flex; justify-content: center; gap: var(--sp-s);
+      padding: var(--sp-s) var(--sp-m) 0;
+    }
+    .thumb-change-btn {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.1em;
+      color: var(--accent-d);
+      background: none;
+      border: 1px solid var(--accent);
+      border-radius: 2px;
+      padding: 5px 14px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .thumb-change-btn:hover { background: var(--accent); color: var(--paper); }
+    .thumb-change-btn:disabled { opacity: .5; cursor: default; }
+
+    .edit-form { display: flex; flex-direction: column; gap: var(--sp-m); }
+    .edit-field label {
+      display: block;
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.12em;
+      color: var(--ink-faint);
+      margin-bottom: 3px;
+    }
+    .edit-field input, .edit-field textarea, .edit-field select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1.5px solid var(--paper-d);
+      border-radius: 2px;
+      background: rgba(255,255,255,0.55);
+      font-family: inherit;
+      font-size: var(--fs-s);
+      color: var(--ink);
+    }
+    .edit-field input:focus, .edit-field textarea:focus, .edit-field select:focus {
+      outline: none; border-color: var(--accent);
+    }
+    .edit-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-s); }
+    .edit-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-s); }
+    .edit-actions { display: flex; gap: var(--sp-s); justify-content: flex-end; }
+    .edit-btn {
+      font-family: 'Special Elite', monospace;
+      font-size: var(--fs-s);
+      letter-spacing: 0.1em;
+      padding: 8px 20px;
+      border-radius: 2px;
+      cursor: pointer;
+      border: 1px solid var(--paper-d);
+      background: none;
+      color: var(--ink-fade);
+    }
+    .edit-btn.primary {
+      background: var(--accent-d);
+      border-color: var(--accent-d);
+      color: #deeaf3;
+    }
+    .edit-btn:disabled { opacity: .5; cursor: default; }
+    .edit-error { color: var(--rust); font-size: var(--fs-s); }
+
+    @media (max-width: 600px) {
+      .edit-row, .edit-row-3 { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 600px) {
@@ -365,47 +444,111 @@
     <div class="modal-thumb-wrap" id="modal-thumb-wrap">
       <div class="modal-thumb-placeholder">🐠</div>
     </div>
+    <div class="thumb-actions">
+      <button type="button" class="thumb-change-btn" id="btn-change-thumb">📷 写真を変更</button>
+      <input type="file" id="thumb-file" accept="image/*" hidden>
+    </div>
     <div class="modal-inner">
-      <div id="modal-category" class="modal-category" style="display:none"></div>
-      <div id="modal-name-ja" class="modal-name-ja"></div>
-      <div id="modal-name-en" class="modal-name-en" style="display:none"></div>
-      <div id="modal-name-sci" class="modal-name-sci" style="display:none"></div>
-      <hr class="modal-divider">
-      <div class="modal-meta-grid">
-        <div class="modal-meta-item" id="meta-family-wrap" style="display:none">
-          <div class="modal-meta-label">FAMILY</div>
-          <div class="modal-meta-value" id="meta-family"></div>
+      <!-- 表示モード -->
+      <div id="modal-view">
+        <div id="modal-category" class="modal-category" style="display:none"></div>
+        <div class="modal-name-row">
+          <div id="modal-name-ja" class="modal-name-ja"></div>
+          <button type="button" class="edit-pencil" id="btn-edit" aria-label="編集" title="編集">✏️</button>
         </div>
-        <div class="modal-meta-item" id="meta-first-wrap" style="display:none">
-          <div class="modal-meta-label">FIRST SEEN</div>
-          <div class="modal-meta-value" id="meta-first"></div>
+        <div id="modal-name-en" class="modal-name-en" style="display:none"></div>
+        <div id="modal-name-sci" class="modal-name-sci" style="display:none"></div>
+        <hr class="modal-divider">
+        <div class="modal-meta-grid">
+          <div class="modal-meta-item" id="meta-family-wrap" style="display:none">
+            <div class="modal-meta-label">FAMILY</div>
+            <div class="modal-meta-value" id="meta-family"></div>
+          </div>
+          <div class="modal-meta-item" id="meta-first-wrap" style="display:none">
+            <div class="modal-meta-label">FIRST SEEN</div>
+            <div class="modal-meta-value" id="meta-first"></div>
+          </div>
+          <div class="modal-meta-item" id="meta-rarity-wrap" style="display:none">
+            <div class="modal-meta-label">RARITY</div>
+            <div class="modal-meta-value stars" id="meta-rarity"></div>
+          </div>
+          <div class="modal-meta-item" id="meta-popularity-wrap" style="display:none">
+            <div class="modal-meta-label">POPULARITY</div>
+            <div class="modal-meta-value stars" id="meta-popularity"></div>
+          </div>
+          <div class="modal-meta-item" id="meta-photo-wrap" style="display:none">
+            <div class="modal-meta-label">PHOTO EASE</div>
+            <div class="modal-meta-value stars" id="meta-photo"></div>
+          </div>
         </div>
-        <div class="modal-meta-item" id="meta-rarity-wrap" style="display:none">
-          <div class="modal-meta-label">RARITY</div>
-          <div class="modal-meta-value stars" id="meta-rarity"></div>
+        <div id="modal-memo" class="modal-memo" style="display:none"></div>
+      </div>
+
+      <!-- 編集モード -->
+      <div id="modal-edit" class="edit-form" hidden>
+        <div class="edit-field">
+          <label for="ef-name">和名</label>
+          <input type="text" id="ef-name">
         </div>
-        <div class="modal-meta-item" id="meta-popularity-wrap" style="display:none">
-          <div class="modal-meta-label">POPULARITY</div>
-          <div class="modal-meta-value stars" id="meta-popularity"></div>
+        <div class="edit-row">
+          <div class="edit-field">
+            <label for="ef-en">英名</label>
+            <input type="text" id="ef-en">
+          </div>
+          <div class="edit-field">
+            <label for="ef-sci">学名</label>
+            <input type="text" id="ef-sci">
+          </div>
         </div>
-        <div class="modal-meta-item" id="meta-photo-wrap" style="display:none">
-          <div class="modal-meta-label">PHOTO EASE</div>
-          <div class="modal-meta-value stars" id="meta-photo"></div>
+        <div class="edit-row">
+          <div class="edit-field">
+            <label for="ef-category">分類</label>
+            <select id="ef-category">
+              <option>魚類</option><option>甲殻類</option><option>軟体動物</option>
+              <option>棘皮動物</option><option>爬虫類</option><option>哺乳類</option><option>その他</option>
+            </select>
+          </div>
+          <div class="edit-field">
+            <label for="ef-family">科</label>
+            <input type="text" id="ef-family">
+          </div>
+        </div>
+        <div class="edit-row-3">
+          <div class="edit-field">
+            <label for="ef-rarity">レア度</label>
+            <input type="text" id="ef-rarity" placeholder="★★★☆☆">
+          </div>
+          <div class="edit-field">
+            <label for="ef-popularity">人気</label>
+            <input type="text" id="ef-popularity" placeholder="★★★☆☆">
+          </div>
+          <div class="edit-field">
+            <label for="ef-photoease">撮りやすさ</label>
+            <input type="text" id="ef-photoease" placeholder="★★★☆☆">
+          </div>
+        </div>
+        <div class="edit-field">
+          <label for="ef-memo">メモ</label>
+          <textarea id="ef-memo" rows="4"></textarea>
+        </div>
+        <div class="edit-error" id="ef-error" hidden></div>
+        <div class="edit-actions">
+          <button type="button" class="edit-btn" id="ef-cancel">キャンセル</button>
+          <button type="button" class="edit-btn primary" id="ef-save">保存</button>
         </div>
       </div>
-      <div id="modal-memo" class="modal-memo" style="display:none"></div>
     </div>
   </div>
 </div>
 
 <script type="module">
   import { requireAuth } from "./js/supabaseClient.js";
-  import { listFish, signedThumbUrls } from "./js/api.js";
+  import { listFish, signedThumbUrls, updateFish, uploadFishThumb, updateFishThumbnail } from "./js/api.js";
   import { initSea } from "./js/sea.js";
-  import { esc } from "./js/ui.js";
+  import { esc, resizeImage } from "./js/ui.js";
 
   initSea();
-  await requireAuth();
+  const user = await requireAuth();
 
   const fishList = await listFish();
   const storagePaths = fishList
@@ -468,7 +611,9 @@
     else wrap.style.display = "none";
   };
 
-  function openModal(f) {
+  let currentFish = null;   // モーダルで表示中の魚
+
+  function renderModalView(f) {
     const thumbWrap = document.getElementById("modal-thumb-wrap");
     const url = thumbUrl(f);
     if (url) {
@@ -492,12 +637,19 @@
     setField("meta-popularity", f.popularity, "meta-popularity-wrap");
     setField("meta-photo", f.photo_ease, "meta-photo-wrap");
     setField("modal-memo", f.memo);
+  }
+
+  function openModal(f) {
+    currentFish = f;
+    showEditMode(false);
+    renderModalView(f);
     overlay.classList.add("open");
     document.body.style.overflow = "hidden";
   }
   function closeModal() {
     overlay.classList.remove("open");
     document.body.style.overflow = "";
+    showEditMode(false);
   }
 
   document.getElementById("fish-grid").addEventListener("click", e => {
@@ -507,6 +659,113 @@
   document.getElementById("modal-close").addEventListener("click", closeModal);
   overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+  // ── グリッドの1カードを再描画 ──
+  function refreshCard(f) {
+    const i = fishList.indexOf(f);
+    const card = document.querySelector(`.fish-card[data-index="${i}"]`);
+    if (!card) return;
+    card.dataset.category = f.category ?? "";
+    card.innerHTML = `
+      <div class="fish-thumb-wrap">
+        ${thumbUrl(f)
+          ? `<img src="${esc(thumbUrl(f))}" alt="${esc(f.name)}" loading="lazy">`
+          : `<div class="fish-thumb-placeholder">🐠</div>`}
+      </div>
+      <div class="fish-body">
+        ${f.category ? `<div class="fish-category-badge">${esc(f.category)}</div>` : ""}
+        <div class="fish-name-ja">${esc(f.name)}</div>
+        ${f.english_name ? `<div class="fish-name-en">${esc(f.english_name)}</div>` : ""}
+        ${f.rarity ? `<div class="fish-rarity">${esc(f.rarity)}</div>` : ""}
+      </div>`;
+  }
+
+  // ── 編集モード（鉛筆マーク） ──
+  function showEditMode(on) {
+    document.getElementById("modal-view").hidden = on;
+    document.getElementById("modal-edit").hidden = !on;
+    document.getElementById("ef-error").hidden = true;
+  }
+
+  document.getElementById("btn-edit").addEventListener("click", () => {
+    const f = currentFish;
+    document.getElementById("ef-name").value       = f.name ?? "";
+    document.getElementById("ef-en").value         = f.english_name ?? "";
+    document.getElementById("ef-sci").value        = f.scientific_name ?? "";
+    document.getElementById("ef-category").value   = f.category ?? "魚類";
+    document.getElementById("ef-family").value     = f.family ?? "";
+    document.getElementById("ef-rarity").value     = f.rarity ?? "";
+    document.getElementById("ef-popularity").value = f.popularity ?? "";
+    document.getElementById("ef-photoease").value  = f.photo_ease ?? "";
+    document.getElementById("ef-memo").value       = f.memo ?? "";
+    showEditMode(true);
+  });
+
+  document.getElementById("ef-cancel").addEventListener("click", () => showEditMode(false));
+
+  document.getElementById("ef-save").addEventListener("click", async () => {
+    const btn = document.getElementById("ef-save");
+    const errEl = document.getElementById("ef-error");
+    const name = document.getElementById("ef-name").value.trim();
+    if (!name) {
+      errEl.textContent = "和名は必須です";
+      errEl.hidden = false;
+      return;
+    }
+    const patch = {
+      name,
+      english_name:    document.getElementById("ef-en").value.trim() || null,
+      scientific_name: document.getElementById("ef-sci").value.trim() || null,
+      category:        document.getElementById("ef-category").value,
+      family:          document.getElementById("ef-family").value.trim() || null,
+      rarity:          document.getElementById("ef-rarity").value.trim() || null,
+      popularity:      document.getElementById("ef-popularity").value.trim() || null,
+      photo_ease:      document.getElementById("ef-photoease").value.trim() || null,
+      memo:            document.getElementById("ef-memo").value.trim() || null,
+    };
+    btn.disabled = true;
+    btn.textContent = "保存中...";
+    try {
+      await updateFish(currentFish.id, patch);
+      Object.assign(currentFish, patch);
+      renderModalView(currentFish);
+      refreshCard(currentFish);
+      showEditMode(false);
+    } catch (e) {
+      errEl.textContent = "保存に失敗しました: " + e.message;
+      errEl.hidden = false;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "保存";
+    }
+  });
+
+  // ── 写真を変更 ──
+  const thumbFile = document.getElementById("thumb-file");
+  document.getElementById("btn-change-thumb").addEventListener("click", () => thumbFile.click());
+  thumbFile.addEventListener("change", async () => {
+    if (!thumbFile.files.length || !currentFish) return;
+    const btn = document.getElementById("btn-change-thumb");
+    btn.disabled = true;
+    btn.textContent = "⏳ アップロード中...";
+    try {
+      const resized = await resizeImage(thumbFile.files[0], 800);
+      const path = await uploadFishThumb(user.id, currentFish.id, resized);
+      await updateFishThumbnail(currentFish.id, path);
+      currentFish.thumbnail_url = path;
+      // 新しい署名URLを取得して表示を更新
+      const newMap = await signedThumbUrls([path.slice(8)]);
+      thumbMap[path.slice(8)] = newMap[path.slice(8)];
+      renderModalView(currentFish);
+      refreshCard(currentFish);
+    } catch (e) {
+      alert("写真の変更に失敗しました: " + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "📷 写真を変更";
+      thumbFile.value = "";
+    }
+  });
 
   document.getElementById("loading").hidden = true;
   document.getElementById("content").hidden = false;
