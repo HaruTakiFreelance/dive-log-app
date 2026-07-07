@@ -238,6 +238,23 @@ export function publicStorageUrl(bucket, path) {
   return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
 }
 
+// ── テーマ用壁紙（photosテーブルには登録しない = ログの写真一覧に混ざらない） ──
+
+export async function uploadWallpaper(userId, file) {
+  const path = `${userId}/bg_${crypto.randomUUID().slice(0, 8)}.jpg`;
+  const { error } = await supabase.storage.from("photos").upload(path, file, {
+    contentType: file.type || "image/jpeg",
+  });
+  throwIf(error);
+  return path;
+}
+
+export async function deleteWallpaperFile(path) {
+  // 壁紙としてアップロードしたファイル(bg_プレフィックス)のみ削除対象
+  if (!path || !path.includes("/bg_")) return;
+  await supabase.storage.from("photos").remove([path]);
+}
+
 /** 指定日の Max Depth 未入力ダイブを本数順で返す（CSV照合用） */
 export async function findUnmatchedDivesByDate(date) {
   const { data, error } = await supabase
