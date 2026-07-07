@@ -1,6 +1,21 @@
 /* テーマプリセット（body[data-theme] でCSS変数を上書き）
    すべて暗色背景ベースなので、白系オーバーレイ文字はそのまま機能する。 */
 
+/* 背景写真レイヤー（自分の写真を背景に選んだ場合）
+   iOSのbackground-attachment:fixed非対応を避けるためfixed要素で敷く */
+.bg-photo-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-position: center;
+  background-size: cover;
+  pointer-events: none;
+}
+/* 泡・魚のレイヤーとコンテンツは写真より手前に */
+.sea { z-index: 1; }
+.book { z-index: 2; }
+.user-note, .footer-note, .build-note { position: relative; z-index: 2; }
+
 /* 深海（クラシック / デフォルト）: logbook.css の :root がそのまま適用される */
 
 /* 墨 — モダンな墨色 × ゴシック */
