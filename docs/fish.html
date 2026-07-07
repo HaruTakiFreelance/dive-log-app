@@ -404,6 +404,90 @@
       .edit-row, .edit-row-3 { grid-template-columns: 1fr; }
     }
 
+    /* ── 完成率 ── */
+    .completion-card {
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      padding: 0.9rem 1.2rem;
+      margin-bottom: 1.2rem;
+    }
+    .completion-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem; }
+    .completion-label {
+      font-family: 'Special Elite', monospace;
+      font-size: 0.62rem; letter-spacing: 0.2em; color: var(--ink-faint);
+    }
+    .completion-num {
+      font-family: 'Special Elite', monospace;
+      font-size: 1rem; color: var(--accent-d);
+    }
+    .completion-bar { height: 8px; background: var(--paper-d); border-radius: 4px; overflow: hidden; }
+    .completion-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 4px; transition: width 0.6s; }
+
+    /* ── タブ ── */
+    .zukan-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .zukan-tab {
+      flex: 1;
+      font-family: 'Special Elite', monospace;
+      font-size: 0.8rem; letter-spacing: 0.12em;
+      padding: 9px; border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: transparent; color: rgba(255,255,255,0.5);
+      cursor: pointer;
+    }
+    .zukan-tab.active { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+
+    /* ── マスター図鑑（科アコーディオン） ── */
+    .master-search {
+      width: 100%; padding: 10px 14px;
+      border: 1px solid rgba(255,255,255,0.25); border-radius: 2px;
+      background: rgba(255,255,255,0.06); color: #fff;
+      font-family: inherit; font-size: 0.95rem;
+      margin-bottom: 1rem;
+    }
+    .master-search::placeholder { color: rgba(255,255,255,0.35); }
+    .master-search:focus { outline: none; border-color: rgba(255,255,255,0.5); }
+
+    .family-section { margin-bottom: 0.6rem; }
+    .family-header {
+      width: 100%;
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--paper);
+      border: none; border-left: 3px solid var(--paper-d); border-radius: 2px;
+      padding: 0.7rem 1rem;
+      cursor: pointer;
+      font-family: 'Playfair Display', serif; font-weight: 700;
+      font-size: 0.95rem; color: var(--ink);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    .family-header .family-count {
+      font-family: 'Special Elite', monospace;
+      font-size: 0.75rem; color: var(--ink-fade); font-weight: 400;
+    }
+    .family-header .family-count.complete { color: #b89200; }
+    .family-body { padding-top: 0.6rem; }
+    .family-body[hidden] { display: none; }
+
+    /* 未発見カード（黒マスク） */
+    .fish-card.unseen .fish-thumb-wrap img {
+      filter: brightness(0.15) grayscale(1);
+    }
+    .fish-card.unseen .fish-thumb-placeholder { opacity: 0.12; }
+    .fish-card.unseen .fish-thumb-wrap { background: #22201a; }
+    .fish-card.unseen .fish-name-ja { color: var(--ink-faint); }
+    .unseen-mark {
+      font-family: 'Special Elite', monospace;
+      font-size: 0.6rem; letter-spacing: 0.1em;
+      color: var(--ink-faint);
+    }
+
+    /* 画像クレジット */
+    .modal-attribution {
+      font-size: 0.62rem; color: var(--ink-faint);
+      text-align: right; padding: 4px 10px 0;
+      font-family: 'Special Elite', monospace;
+    }
+
     @media (max-width: 600px) {
       .cover-inner { padding: 2rem 1.5rem; flex-direction: column; align-items: flex-start; }
       .cover-stats { align-items: flex-start; }
@@ -435,12 +519,34 @@
       </div>
     </div>
 
-    <div class="section-title">── Filter by Category ──</div>
-    <div class="filter-bar" id="filter-bar">
-      <button class="filter-btn active" data-category="all">All</button>
+    <!-- 図鑑完成率 -->
+    <div class="completion-card">
+      <div class="completion-row">
+        <span class="completion-label">ENCYCLOPEDIA COMPLETION</span>
+        <span class="completion-num" id="completion-num">0 / 0</span>
+      </div>
+      <div class="completion-bar"><div class="completion-fill" id="completion-fill"></div></div>
     </div>
 
-    <div class="fish-grid" id="fish-grid"></div>
+    <!-- タブ -->
+    <div class="zukan-tabs">
+      <button class="zukan-tab active" data-tab="found">見つけた魚</button>
+      <button class="zukan-tab" data-tab="all">すべて</button>
+    </div>
+
+    <!-- 見つけた魚タブ -->
+    <div id="tab-found">
+      <div class="filter-bar" id="filter-bar">
+        <button class="filter-btn active" data-category="all">All</button>
+      </div>
+      <div class="fish-grid" id="fish-grid"></div>
+    </div>
+
+    <!-- すべてタブ（マスター図鑑） -->
+    <div id="tab-all" hidden>
+      <input type="search" id="master-search" class="master-search" placeholder="魚名で検索...">
+      <div id="master-list"></div>
+    </div>
 
   </div>
 </div>
@@ -452,7 +558,8 @@
     <div class="modal-thumb-wrap" id="modal-thumb-wrap">
       <div class="modal-thumb-placeholder">🐠</div>
     </div>
-    <div class="thumb-actions">
+    <div class="modal-attribution" id="modal-attribution" hidden></div>
+    <div class="thumb-actions" id="thumb-actions">
       <button type="button" class="thumb-change-btn" id="btn-change-thumb">📷 写真を変更</button>
       <input type="file" id="thumb-file" accept="image/*" hidden>
     </div>
@@ -551,7 +658,8 @@
 
 <script type="module">
   import { requireAuth } from "./js/supabaseClient.js";
-  import { listFish, signedThumbUrls, updateFish, uploadFishThumb, updateFishThumbnail } from "./js/api.js";
+  import { listFish, listFishMaster, signedThumbUrls, updateFish,
+           uploadFishThumb, updateFishThumbnail, publicStorageUrl } from "./js/api.js";
   import { initSea } from "./js/sea.js";
   import { applyUserTheme } from "./js/theme.js";
   import { esc, resizeImage } from "./js/ui.js";
@@ -560,21 +668,74 @@
   const user = await requireAuth();
   applyUserTheme();
 
-  const fishList = await listFish();
+  const [fishList, masterList] = await Promise.all([
+    listFish(),
+    listFishMaster().catch(() => []),   // マスター未構築でも図鑑は動く
+  ]);
+
+  // ── サムネイルURL解決 ──
   const storagePaths = fishList
     .filter(f => f.thumbnail_url?.startsWith("storage:"))
     .map(f => f.thumbnail_url.slice(8));
   const thumbMap = await signedThumbUrls(storagePaths);
-  const thumbUrl = f => {
+  const personalThumbUrl = f => {
     if (!f.thumbnail_url) return "";
     return f.thumbnail_url.startsWith("storage:")
       ? (thumbMap[f.thumbnail_url.slice(8)] ?? "")
       : f.thumbnail_url;
   };
+  const masterThumbUrl = m => {
+    if (!m?.thumbnail_url) return "";
+    return m.thumbnail_url.startsWith("storage:")
+      ? publicStorageUrl("fish-thumbs", m.thumbnail_url.slice(8))
+      : m.thumbnail_url;
+  };
+
+  // ── マスターと個人図鑑の突合（seen判定） ──
+  const masterById      = new Map(masterList.map(m => [m.id, m]));
+  const personalByMaster = new Map(fishList.filter(f => f.master_id).map(f => [f.master_id, f]));
+  const personalByName   = new Map(fishList.map(f => [(f.name ?? "").trim(), f]));
+  masterList.forEach(m => {
+    m.personal = personalByMaster.get(m.id) ?? personalByName.get(m.name.trim()) ?? null;
+    m.seen = !!m.personal;
+  });
+
+  /** 表示に使う画像: 個人写真 → マスター写真 の順でフォールバック */
+  function displayThumb(f) {
+    const own = personalThumbUrl(f);
+    if (own) return { url: own, attribution: null };
+    const m = f.master_id ? masterById.get(f.master_id) : null;
+    const murl = masterThumbUrl(m);
+    return murl ? { url: murl, attribution: m.thumb_attribution } : { url: "", attribution: null };
+  }
 
   document.getElementById("total").textContent = fishList.length;
 
-  // カテゴリフィルタ
+  // マスター未構築の場合は完成率と「すべて」タブを隠す
+  if (!masterList.length) {
+    document.querySelector(".completion-card").hidden = true;
+    document.querySelector(".zukan-tabs").hidden = true;
+  }
+
+  // ── 完成率 ──
+  const seenCount = masterList.filter(m => m.seen).length;
+  const pct = masterList.length ? (seenCount / masterList.length * 100) : 0;
+  document.getElementById("completion-num").textContent =
+    `${seenCount} / ${masterList.length} (${pct.toFixed(1)}%)`;
+  document.getElementById("completion-fill").style.width = `${Math.max(pct, 0.5)}%`;
+
+  // ── タブ切替 ──
+  document.querySelectorAll(".zukan-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".zukan-tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      document.getElementById("tab-found").hidden = tab.dataset.tab !== "found";
+      document.getElementById("tab-all").hidden   = tab.dataset.tab !== "all";
+      if (tab.dataset.tab === "all" && !masterRendered) renderMasterAccordion();
+    });
+  });
+
+  // ── 見つけた魚タブ（従来のグリッド） ──
   const categories = [...new Set(fishList.map(f => f.category).filter(Boolean))];
   const filterBar = document.getElementById("filter-bar");
   categories.forEach(cat => {
@@ -585,12 +746,13 @@
     filterBar.appendChild(btn);
   });
 
-  // グリッド
-  document.getElementById("fish-grid").innerHTML = fishList.map((f, i) => `
+  function foundCardHtml(f, i) {
+    const t = displayThumb(f);
+    return `
     <div class="fish-card" data-index="${i}" data-category="${esc(f.category ?? "")}">
       <div class="fish-thumb-wrap">
-        ${thumbUrl(f)
-          ? `<img src="${esc(thumbUrl(f))}" alt="${esc(f.name)}" loading="lazy">`
+        ${t.url
+          ? `<img src="${esc(t.url)}" alt="${esc(f.name)}" loading="lazy">`
           : `<div class="fish-thumb-placeholder">🐠</div>`}
       </div>
       <div class="fish-body">
@@ -599,7 +761,10 @@
         ${f.english_name ? `<div class="fish-name-en">${esc(f.english_name)}</div>` : ""}
         ${f.rarity ? `<div class="fish-rarity">${esc(f.rarity)}</div>` : ""}
       </div>
-    </div>`).join("");
+    </div>`;
+  }
+
+  document.getElementById("fish-grid").innerHTML = fishList.map(foundCardHtml).join("");
 
   filterBar.addEventListener("click", e => {
     const btn = e.target.closest(".filter-btn");
@@ -607,12 +772,102 @@
     filterBar.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     const active = btn.dataset.category;
-    document.querySelectorAll(".fish-card").forEach(card => {
+    document.querySelectorAll("#fish-grid .fish-card").forEach(card => {
       card.classList.toggle("hidden", active !== "all" && card.dataset.category !== active);
     });
   });
 
-  // モーダル
+  document.getElementById("fish-grid").addEventListener("click", e => {
+    const card = e.target.closest(".fish-card");
+    if (card) openModal(fishList[+card.dataset.index]);
+  });
+
+  // ── すべてタブ（マスター図鑑・科アコーディオン） ──
+  let masterRendered = false;
+  const familyGroups = (() => {
+    const groups = new Map();
+    for (const m of masterList) {
+      const fam = m.family || "その他";
+      if (!groups.has(fam)) groups.set(fam, []);
+      groups.get(fam).push(m);
+    }
+    const arr = [...groups.entries()].map(([fam, items]) => ({
+      fam,
+      items: items.sort((a, b) => a.name.localeCompare(b.name, "ja")),
+      seen: items.filter(m => m.seen).length,
+    }));
+    // 見つけた数が多い科を上に、同数なら名前順
+    return arr.sort((a, b) => b.seen - a.seen || a.fam.localeCompare(b.fam, "ja"));
+  })();
+
+  function masterCardHtml(m) {
+    const url = m.seen && m.personal ? (displayThumb(m.personal).url || masterThumbUrl(m)) : masterThumbUrl(m);
+    return `
+    <div class="fish-card${m.seen ? "" : " unseen"}" data-master-id="${esc(m.id)}">
+      <div class="fish-thumb-wrap">
+        ${url
+          ? `<img src="${esc(url)}" alt="${esc(m.name)}" loading="lazy">`
+          : `<div class="fish-thumb-placeholder">🐠</div>`}
+      </div>
+      <div class="fish-body">
+        <div class="fish-name-ja">${esc(m.name)}</div>
+        ${m.seen
+          ? (m.english_name ? `<div class="fish-name-en">${esc(m.english_name)}</div>` : "")
+          : `<div class="unseen-mark">— まだ見ていない —</div>`}
+      </div>
+    </div>`;
+  }
+
+  function renderMasterAccordion(query = "") {
+    masterRendered = true;
+    const container = document.getElementById("master-list");
+    const q = query.trim();
+
+    if (q) {
+      const hits = masterList.filter(m => m.name.includes(q)).slice(0, 60);
+      container.innerHTML = hits.length
+        ? `<div class="fish-grid">${hits.map(masterCardHtml).join("")}</div>`
+        : `<p style="color:rgba(255,255,255,0.4); font-family:'Special Elite',monospace; font-size:0.8rem; text-align:center; padding:2rem 0;">— NOT FOUND —</p>`;
+      return;
+    }
+
+    container.innerHTML = familyGroups.map((g, gi) => `
+      <div class="family-section">
+        <button type="button" class="family-header" data-group="${gi}">
+          <span>${esc(g.fam)}</span>
+          <span class="family-count${g.seen === g.items.length ? " complete" : ""}">${g.seen} / ${g.items.length}${g.seen === g.items.length ? " ✦" : ""}</span>
+        </button>
+        <div class="family-body" hidden data-group-body="${gi}"></div>
+      </div>`).join("");
+  }
+
+  document.getElementById("master-list").addEventListener("click", e => {
+    const header = e.target.closest(".family-header");
+    if (header) {
+      const gi = header.dataset.group;
+      const body = document.querySelector(`[data-group-body="${gi}"]`);
+      if (body.hidden && !body.innerHTML) {
+        // 開いた時に初めてカードを描画（1320件でも軽い）
+        body.innerHTML = `<div class="fish-grid">${familyGroups[gi].items.map(masterCardHtml).join("")}</div>`;
+      }
+      body.hidden = !body.hidden;
+      return;
+    }
+    const card = e.target.closest(".fish-card[data-master-id]");
+    if (card) {
+      const m = masterById.get(card.dataset.masterId);
+      if (m.seen && m.personal) openModal(m.personal);
+      else openMasterModal(m);
+    }
+  });
+
+  let searchTimer;
+  document.getElementById("master-search").addEventListener("input", e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => renderMasterAccordion(e.target.value), 250);
+  });
+
+  // ── モーダル ──
   const overlay = document.getElementById("modal-overlay");
   const setField = (id, value, wrapId) => {
     const el = document.getElementById(id);
@@ -621,15 +876,15 @@
     else wrap.style.display = "none";
   };
 
-  let currentFish = null;   // モーダルで表示中の魚
+  let currentFish = null;
 
-  function renderModalView(f) {
+  function setModalThumb(url, name, masked) {
     const thumbWrap = document.getElementById("modal-thumb-wrap");
-    const url = thumbUrl(f);
     if (url) {
       thumbWrap.innerHTML = "";
       const img = document.createElement("img");
-      img.src = url; img.alt = f.name; img.loading = "lazy";
+      img.src = url; img.alt = name; img.loading = "lazy";
+      if (masked) img.style.filter = "brightness(0.15) grayscale(1)";
       img.addEventListener("error", () => {
         thumbWrap.innerHTML = '<div class="modal-thumb-placeholder">🐠</div>';
       });
@@ -637,6 +892,9 @@
     } else {
       thumbWrap.innerHTML = '<div class="modal-thumb-placeholder">🐠</div>';
     }
+  }
+
+  function fillModalMeta(f) {
     setField("modal-category", f.category);
     setField("modal-name-ja", f.name);
     setField("modal-name-en", f.english_name);
@@ -649,48 +907,62 @@
     setField("modal-memo", f.memo);
   }
 
+  function setAttribution(text) {
+    const el = document.getElementById("modal-attribution");
+    el.hidden = !text;
+    if (text) el.textContent = text;
+  }
+
+  /** 発見済み（個人エントリ）: 編集・写真変更あり */
   function openModal(f) {
     currentFish = f;
     showEditMode(false);
     renderModalView(f);
+    document.getElementById("thumb-actions").style.display = "";
+    document.getElementById("btn-edit").parentElement.style.display = "";
     overlay.classList.add("open");
     document.body.style.overflow = "hidden";
   }
+
+  function renderModalView(f) {
+    const t = displayThumb(f);
+    setModalThumb(t.url, f.name, false);
+    setAttribution(t.attribution);
+    fillModalMeta(f);
+  }
+
+  /** 未発見（マスター）: 閲覧のみ・画像マスク */
+  function openMasterModal(m) {
+    currentFish = null;
+    showEditMode(false);
+    setModalThumb(masterThumbUrl(m), m.name, true);
+    setAttribution(null);   // マスクされているのでクレジットは非表示
+    fillModalMeta({ ...m, first_seen: null });
+    document.getElementById("thumb-actions").style.display = "none";
+    document.getElementById("btn-edit").parentElement.style.display = "none";
+    overlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+
   function closeModal() {
     overlay.classList.remove("open");
     document.body.style.overflow = "";
     showEditMode(false);
   }
 
-  document.getElementById("fish-grid").addEventListener("click", e => {
-    const card = e.target.closest(".fish-card");
-    if (card) openModal(fishList[+card.dataset.index]);
-  });
   document.getElementById("modal-close").addEventListener("click", closeModal);
   overlay.addEventListener("click", e => { if (e.target === overlay) closeModal(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 
-  // ── グリッドの1カードを再描画 ──
+  // ── グリッドの1カードを再描画（見つけた魚タブ） ──
   function refreshCard(f) {
     const i = fishList.indexOf(f);
-    const card = document.querySelector(`.fish-card[data-index="${i}"]`);
+    const card = document.querySelector(`#fish-grid .fish-card[data-index="${i}"]`);
     if (!card) return;
-    card.dataset.category = f.category ?? "";
-    card.innerHTML = `
-      <div class="fish-thumb-wrap">
-        ${thumbUrl(f)
-          ? `<img src="${esc(thumbUrl(f))}" alt="${esc(f.name)}" loading="lazy">`
-          : `<div class="fish-thumb-placeholder">🐠</div>`}
-      </div>
-      <div class="fish-body">
-        ${f.category ? `<div class="fish-category-badge">${esc(f.category)}</div>` : ""}
-        <div class="fish-name-ja">${esc(f.name)}</div>
-        ${f.english_name ? `<div class="fish-name-en">${esc(f.english_name)}</div>` : ""}
-        ${f.rarity ? `<div class="fish-rarity">${esc(f.rarity)}</div>` : ""}
-      </div>`;
+    card.outerHTML = foundCardHtml(f, i);
   }
 
-  // ── 編集モード（鉛筆マーク） ──
+  // ── 編集モード ──
   function showEditMode(on) {
     document.getElementById("modal-view").hidden = on;
     document.getElementById("modal-edit").hidden = !on;
@@ -699,6 +971,7 @@
 
   document.getElementById("btn-edit").addEventListener("click", () => {
     const f = currentFish;
+    if (!f) return;
     document.getElementById("ef-name").value       = f.name ?? "";
     document.getElementById("ef-en").value         = f.english_name ?? "";
     document.getElementById("ef-sci").value        = f.scientific_name ?? "";
@@ -736,7 +1009,7 @@
     btn.disabled = true;
     btn.textContent = "保存中...";
     try {
-      await updateFish(currentFish.id, patch);
+      await updateFish(currentFish.id, patch);   // 個人コピーのみ更新（マスターには影響しない）
       Object.assign(currentFish, patch);
       renderModalView(currentFish);
       refreshCard(currentFish);
@@ -750,7 +1023,7 @@
     }
   });
 
-  // ── 写真を変更 ──
+  // ── 写真を変更（個人エントリのみ） ──
   const thumbFile = document.getElementById("thumb-file");
   document.getElementById("btn-change-thumb").addEventListener("click", () => thumbFile.click());
   thumbFile.addEventListener("change", async () => {
@@ -763,7 +1036,6 @@
       const path = await uploadFishThumb(user.id, currentFish.id, resized);
       await updateFishThumbnail(currentFish.id, path);
       currentFish.thumbnail_url = path;
-      // 新しい署名URLを取得して表示を更新
       const newMap = await signedThumbUrls([path.slice(8)]);
       thumbMap[path.slice(8)] = newMap[path.slice(8)];
       renderModalView(currentFish);

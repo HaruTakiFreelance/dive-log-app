@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🤿 Dive Log — マスター図鑑 画像管理</title>
+  <link rel="manifest" href="../manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#03111f">
+  <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="../record/index.html" class="logo">🤿 Dive Log</a>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <a href="../record/index.html" style="font-size:.85rem; color:var(--sub); text-decoration:none;">← 記録メニューに戻る</a>
+      <h2 class="card-title" style="margin-top:12px;">🖼 マスター図鑑 画像管理</h2>
+      <p class="card-sub">画像未設定のマスター図鑑エントリに画像を設定します（管理者専用）</p>
+
+      <div id="alert-area"></div>
+      <div class="field" style="margin-bottom:14px;">
+        <input type="search" id="search" placeholder="魚名・科で絞り込み...">
+      </div>
+      <p id="count-note" style="font-size:.8rem; color:var(--sub); margin-bottom:12px;"></p>
+      <div id="fish-list"></div>
+      <button type="button" class="btn btn-secondary btn-full" id="btn-more" hidden>さらに表示</button>
+    </div>
+  </main>
+
+  <style>
+    .thumb-item {
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .thumb-item.done { border-color: #9ae6b4; background: #f0fff4; }
+    .thumb-name { font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
+    .thumb-links { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .thumb-links a {
+      font-size: .78rem; color: var(--accent); text-decoration: none;
+      border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px;
+    }
+    .thumb-links a:hover { background: var(--chip-bg); }
+    .thumb-inputs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .thumb-inputs input[type="url"] { flex: 1; min-width: 200px; }
+    .thumb-inputs .btn { padding: 8px 14px; font-size: .85rem; }
+  </style>
+
+  <script type="module">
+    import { requireAuth } from "../js/supabaseClient.js";
+    import { supabase } from "../js/supabaseClient.js";
+    import { updateMasterThumbnail, uploadMasterThumb } from "../js/api.js";
+    import { esc, showAlert, resizeImage } from "../js/ui.js";
+
+    const ADMIN_UUID = "f56a560d-37d2-49bb-aaeb-5b03fd79f05b";
+    const user = await requireAuth();
+    if (user.id !== ADMIN_UUID) {
+      document.querySelector(".card").innerHTML = "<p>このページは管理者専用です。</p>";
+      throw new Error("not admin");
+    }
+
+    // 画像未設定のマスターを全件取得
+    let all = [];
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase.from("fish_master")
+        .select("id, name, english_name, family, scientific_name")
+        .is("thumbnail_url", null)
+        .order("name")
+        .range(offset, offset + 999);
+      if (error) { showAlert("読み込み失敗: " + error.message, "error"); break; }
+      all.push(...data);
+      if (data.length < 1000) break;
+    }
+
+    const PAGE = 30;
+    let filtered = all;
+    let shown = 0;
+
+    function itemHtml(f) {
+      const q = encodeURIComponent(f.name + " 魚");
+      return `<div class="thumb-item" data-id="${esc(f.id)}">
+        <div class="thumb-name">🐠 ${esc(f.name)}
+          <span style="font-weight:400;color:var(--sub);font-size:.8rem">${esc(f.family ?? "")}${f.english_name ? " · " + esc(f.english_name) : ""}</span>
+        </div>
+        <div class="thumb-links">
+          <a href="https://www.google.com/search?tbm=isch&q=${q}" target="_blank" rel="noopener">🔍 Google画像検索</a>
+          <a href="https://www.inaturalist.org/search?q=${encodeURIComponent(f.scientific_name ?? f.name)}" target="_blank" rel="noopener">🌿 iNaturalist</a>
+        </div>
+        <div class="thumb-inputs">
+          <input type="url" placeholder="画像URLを貼り付け">
+          <button type="button" class="btn btn-primary" data-action="url">URLで登録</button>
+          <input type="file" accept="image/*" hidden>
+          <button type="button" class="btn btn-secondary" data-action="file">📁 ファイルから</button>
+        </div>
+      </div>`;
+    }
+
+    function render(reset = false) {
+      const list = document.getElementById("fish-list");
+      if (reset) { list.innerHTML = ""; shown = 0; }
+      const chunk = filtered.slice(shown, shown + PAGE);
+      list.insertAdjacentHTML("beforeend", chunk.map(itemHtml).join(""));
+      shown += chunk.length;
+      document.getElementById("btn-more").hidden = shown >= filtered.length;
+      document.getElementById("count-note").textContent =
+        `画像未設定: ${filtered.length}件（表示中 ${shown}件）`;
+    }
+    render(true);
+
+    document.getElementById("btn-more").addEventListener("click", () => render());
+
+    let timer;
+    document.getElementById("search").addEventListener("input", e => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const q = e.target.value.trim();
+        filtered = q ? all.filter(f => f.name.includes(q) || (f.family ?? "").includes(q)) : all;
+        render(true);
+      }, 250);
+    });
+
+    document.getElementById("fish-list").addEventListener("click", async e => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      const item = btn.closest(".thumb-item");
+      const id = item.dataset.id;
+      const name = item.querySelector(".thumb-name").textContent.trim().split("\\n")[0];
+
+      const markDone = () => {
+        item.classList.add("done");
+        item.querySelector(".thumb-inputs").innerHTML =
+          `<span style="color:#276749;font-size:.9rem;">✅ 登録しました</span>`;
+      };
+
+      if (btn.dataset.action === "file") {
+        const fileInput = item.querySelector('input[type="file"]');
+        fileInput.onchange = async () => {
+          if (!fileInput.files.length) return;
+          btn.disabled = true; btn.textContent = "⏳";
+          try {
+            const resized = await resizeImage(fileInput.files[0], 800);
+            const path = await uploadMasterThumb(id, resized);
+            await updateMasterThumbnail(id, path);
+            markDone();
+          } catch (err) {
+            showAlert("エラー: " + err.message, "error");
+            btn.disabled = false; btn.textContent = "📁 ファイルから";
+          }
+        };
+        fileInput.click();
+        return;
+      }
+
+      const url = item.querySelector('input[type="url"]').value.trim();
+      if (!url) { showAlert("URLを入力してください", "error"); return; }
+      btn.disabled = true; btn.textContent = "⏳";
+      try {
+        await updateMasterThumbnail(id, url);
+        markDone();
+      } catch (err) {
+        showAlert("エラー: " + err.message, "error");
+        btn.disabled = false; btn.textContent = "URLで登録";
+      }
+    });
+  </script>
+</body>
+</html>

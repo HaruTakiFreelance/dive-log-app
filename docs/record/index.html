@@ -59,6 +59,7 @@
             <div class="step-desc">記録は保存した瞬間から反映されています</div>
             <a href="../index.html" class="btn btn-secondary btn-full" style="margin-top:10px;">ログブックを開く 🔗</a>
             <a href="../admin/thumbs.html" class="btn btn-secondary btn-full" style="margin-top:6px;">🖼 魚サムネイルを整備する →</a>
+            <a href="../admin/master-thumbs.html" class="btn btn-secondary btn-full" style="margin-top:6px;" id="link-master-thumbs" hidden>📚 マスター図鑑の画像管理 →</a>
           </div>
         </div>
       </div>
@@ -85,8 +86,12 @@
 
   <script type="module">
     import { requireAuth, signOut } from "../js/supabaseClient.js";
-    await requireAuth();
+    const user = await requireAuth();
     document.getElementById("btn-logout").addEventListener("click", signOut);
+    // 管理者にのみマスター図鑑管理リンクを表示
+    if (user.id === "f56a560d-37d2-49bb-aaeb-5b03fd79f05b") {
+      document.getElementById("link-master-thumbs").hidden = false;
+    }
   </script>
 </body>
 </html>

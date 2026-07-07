@@ -137,7 +137,7 @@
 
   <script type="module">
     import { requireAuth } from "../js/supabaseClient.js";
-    import { getLastDive, addDive, searchFish, addFish } from "../js/api.js";
+    import { getLastDive, addDive, searchFish, addFish, searchFishMaster, addFishFromMaster } from "../js/api.js";
     import { getWeatherAndMarine } from "../js/weather.js";
     import { esc, showAlert, today } from "../js/ui.js";
 
@@ -184,27 +184,30 @@
       document.getElementById("dive-form").querySelectorAll("input, textarea").forEach(el => {
         if (el.id !== "fish-input") el.value = "";
       });
-      dbFish.clear(); pendingFish.clear(); renderChips();
+      dbFish.clear(); masterFish.clear(); pendingFish.clear(); renderChips();
     }
 
     // ── 魚チップ ──────────────────────────────────────
-    const dbFish      = new Map();  // fishId -> name（図鑑登録済み）
-    const pendingFish = new Map();  // 'new_N' -> name（未登録）
+    const dbFish      = new Map();  // fishId -> name（自分の図鑑に登録済み）
+    const masterFish  = new Map();  // masterId -> name（マスター図鑑から選択、保存時に個人コピー作成）
+    const pendingFish = new Map();  // 'new_N' -> name（完全新規）
     let   tempCounter = 0;
 
     function renderChips() {
       const c = document.getElementById("fish-chips");
       c.innerHTML = "";
-      dbFish.forEach((name, id)      => c.appendChild(makeChip(name, id, false)));
-      pendingFish.forEach((name, id) => c.appendChild(makeChip(name, id, true)));
+      dbFish.forEach((name, id)      => c.appendChild(makeChip(name, id, "db")));
+      masterFish.forEach((name, id)  => c.appendChild(makeChip(name, id, "master")));
+      pendingFish.forEach((name, id) => c.appendChild(makeChip(name, id, "pending")));
     }
 
-    function makeChip(name, id, isPending) {
+    function makeChip(name, id, kind) {
       const chip = document.createElement("span");
-      chip.className = `fish-chip${isPending ? " fish-chip-new" : ""}`;
-      chip.innerHTML = `${isPending ? "🆕 " : ""}${esc(name)} <button type="button">×</button>`;
+      chip.className = `fish-chip${kind === "pending" ? " fish-chip-new" : ""}`;
+      const mark = kind === "pending" ? "🆕 " : kind === "master" ? "📖 " : "";
+      chip.innerHTML = `${mark}${esc(name)} <button type="button">×</button>`;
       chip.querySelector("button").addEventListener("click", () => {
-        (isPending ? pendingFish : dbFish).delete(id);
+        ({ db: dbFish, master: masterFish, pending: pendingFish })[kind].delete(id);
         renderChips();
       });
       return chip;
@@ -222,12 +225,17 @@
     });
 
     async function fetchAndRender(q) {
-      let list = [];
-      try { list = await searchFish(q); } catch { /* 検索失敗は新規追加のみ表示 */ }
+      let mine = [], masters = [];
+      try {
+        [mine, masters] = await Promise.all([searchFish(q), searchFishMaster(q)]);
+      } catch { /* 検索失敗は新規追加のみ表示 */ }
+      const mineNames = new Set(mine.map(f => f.name));
+      masters = masters.filter(m => !mineNames.has(m.name));
+
       dropdown.innerHTML = "";
       dropdown.hidden    = false;
 
-      list.forEach(fish => {
+      mine.forEach(fish => {
         const item = document.createElement("div");
         item.className   = "dropdown-item";
         item.textContent = fish.name;
@@ -240,9 +248,22 @@
         dropdown.appendChild(item);
       });
 
+      masters.forEach(m => {
+        const item = document.createElement("div");
+        item.className = "dropdown-item";
+        item.innerHTML = `📖 ${esc(m.name)} <span style="font-size:.75rem;color:var(--sub)">図鑑から${m.family ? " · " + esc(m.family) : ""}</span>`;
+        item.addEventListener("click", () => {
+          masterFish.set(m.id, m.name);
+          renderChips();
+          fishInput.value = "";
+          dropdown.hidden = true;
+        });
+        dropdown.appendChild(item);
+      });
+
       const addItem = document.createElement("div");
       addItem.className   = "dropdown-item dropdown-add";
-      addItem.textContent = `「${q}」を新規追加（後で登録）`;
+      addItem.textContent = `「${q}」を新規追加（図鑑にない魚）`;
       addItem.addEventListener("click", () => {
         pendingFish.set(`new_${tempCounter++}`, q);
         renderChips();
@@ -275,6 +296,20 @@
       btnDone.textContent = "⏳ 保存中...";
 
       try {
+        // マスター図鑑から選んだ魚 → 個人図鑑にコピー作成
+        for (const [masterId, name] of masterFish) {
+          try {
+            const fid = await addFishFromMaster(user.id, masterId, sess.date);
+            dbFish.set(fid, name);
+          } catch (e) {
+            // 既に同名で登録済みの場合は既存エントリを使う
+            const hit = (await searchFish(name)).find(f => f.name === name);
+            if (hit) dbFish.set(hit.id, name);
+            else throw e;
+          }
+        }
+        masterFish.clear();
+
         // 天気・海況を取得（失敗しても記録は続行）
         const weather = await getWeatherAndMarine(sess.location, sess.date, null, null);
 

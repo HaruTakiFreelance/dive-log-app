@@ -54,7 +54,7 @@
 
   <script type="module">
     import { requireAuth } from "../js/supabaseClient.js";
-    import { listRecentDives, searchFish, addFish, appendFishToDive } from "../js/api.js";
+    import { listRecentDives, searchFish, addFish, appendFishToDive, searchFishMaster, addFishFromMaster } from "../js/api.js";
     import { esc, showAlert } from "../js/ui.js";
 
     const user = await requireAuth();
@@ -74,21 +74,24 @@
 
     // ── 魚チップ（登録済み選択 + 新規はその場で登録）─────
     const chosen = new Map();   // fishId -> name
+    const masterChosen = new Map();  // masterId -> name
     let   tempCounter = 0;
     const pending = new Map();  // 'new_N' -> name
 
     function renderChips() {
       const c = document.getElementById("fish-chips");
       c.innerHTML = "";
-      chosen.forEach((name, id)  => c.appendChild(makeChip(name, id, false)));
-      pending.forEach((name, id) => c.appendChild(makeChip(name, id, true)));
+      chosen.forEach((name, id)       => c.appendChild(makeChip(name, id, "db")));
+      masterChosen.forEach((name, id) => c.appendChild(makeChip(name, id, "master")));
+      pending.forEach((name, id)      => c.appendChild(makeChip(name, id, "pending")));
     }
-    function makeChip(name, id, isPending) {
+    function makeChip(name, id, kind) {
       const chip = document.createElement("span");
-      chip.className = `fish-chip${isPending ? " fish-chip-new" : ""}`;
-      chip.innerHTML = `${isPending ? "🆕 " : ""}${esc(name)} <button type="button">×</button>`;
+      chip.className = `fish-chip${kind === "pending" ? " fish-chip-new" : ""}`;
+      const mark = kind === "pending" ? "🆕 " : kind === "master" ? "📖 " : "";
+      chip.innerHTML = `${mark}${esc(name)} <button type="button">×</button>`;
       chip.querySelector("button").addEventListener("click", () => {
-        (isPending ? pending : chosen).delete(id);
+        ({ db: chosen, master: masterChosen, pending })[kind].delete(id);
         renderChips();
       });
       return chip;
@@ -110,10 +113,15 @@
     });
 
     async function fetchFish(q) {
-      let list = [];
-      try { list = await searchFish(q); } catch { /* 新規のみ表示 */ }
+      let mine = [], masters = [];
+      try {
+        [mine, masters] = await Promise.all([searchFish(q), searchFishMaster(q)]);
+      } catch { /* 新規のみ表示 */ }
+      const mineNames = new Set(mine.map(f => f.name));
+      masters = masters.filter(m => !mineNames.has(m.name));
+
       dropdown.innerHTML = "";
-      list.forEach(f => {
+      mine.forEach(f => {
         const item = document.createElement("div");
         item.className   = "dropdown-item";
         item.textContent = f.name;
@@ -124,9 +132,21 @@
         };
         dropdown.appendChild(item);
       });
+      masters.forEach(m => {
+        const item = document.createElement("div");
+        item.className = "dropdown-item";
+        item.innerHTML = `📖 ${esc(m.name)} <span style="font-size:.75rem;color:var(--sub)">図鑑から${m.family ? " · " + esc(m.family) : ""}</span>`;
+        item.onclick = () => {
+          masterChosen.set(m.id, m.name);
+          renderChips();
+          input.value = "";
+          dropdown.hidden = true;
+        };
+        dropdown.appendChild(item);
+      });
       const addItem = document.createElement("div");
       addItem.className   = "dropdown-item dropdown-add";
-      addItem.textContent = `「${q}」を新しく追加`;
+      addItem.textContent = `「${q}」を新しく追加（図鑑にない魚）`;
       addItem.onclick = () => {
         pending.set(`new_${tempCounter++}`, q);
         renderChips();
@@ -143,12 +163,23 @@
       const btn    = document.getElementById("btn-save");
 
       if (!diveId) { showAlert("ダイブを選択してください", "error"); return; }
-      if (!chosen.size && !pending.size) { showAlert("魚を1種以上選んでください", "error"); return; }
+      if (!chosen.size && !masterChosen.size && !pending.size) { showAlert("魚を1種以上選んでください", "error"); return; }
 
       btn.disabled = true;
       btn.textContent = "⏳ 保存中...";
       try {
         const diveDate = select.options[select.selectedIndex].dataset.date;
+        // マスター図鑑から選んだ魚 → 個人図鑑にコピー作成
+        for (const [masterId, name] of masterChosen) {
+          try {
+            const id = await addFishFromMaster(user.id, masterId, diveDate);
+            chosen.set(id, name);
+          } catch {
+            const hit = (await searchFish(name)).find(f => f.name === name);
+            if (hit) chosen.set(hit.id, name);
+          }
+          masterChosen.delete(masterId);
+        }
         // 未登録の魚は図鑑に登録してIDを得る
         for (const [key, name] of pending) {
           const id = await addFish(user.id, { name, category: "魚類", first_seen: diveDate });

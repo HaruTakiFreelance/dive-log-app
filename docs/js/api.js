@@ -114,6 +114,80 @@ export async function updateDive(diveId, patch) {
   throwIf(error);
 }
 
+// ── マスター図鑑（全員共通の参照データ） ─────────────
+
+export async function listFishMaster() {
+  // 1320件程度なのでページングで全件取得
+  const all = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase
+      .from("fish_master").select("*").order("name")
+      .range(offset, offset + 999);
+    throwIf(error);
+    all.push(...data);
+    if (data.length < 1000) break;
+  }
+  return all;
+}
+
+export async function searchFishMaster(query) {
+  const { data, error } = await supabase
+    .from("fish_master")
+    .select("id, name, family, category")
+    .ilike("name", `%${query}%`)
+    .limit(15);
+  throwIf(error);
+  return data;
+}
+
+export async function getFishMaster(masterId) {
+  const { data, error } = await supabase
+    .from("fish_master").select("*").eq("id", masterId).single();
+  throwIf(error);
+  return data;
+}
+
+/** マスターから個人図鑑にコピーを作成（コピーオンライトの起点） */
+export async function addFishFromMaster(userId, masterId, firstSeen) {
+  const m = await getFishMaster(masterId);
+  const { data, error } = await supabase.from("fish").insert({
+    user_id:         userId,
+    master_id:       m.id,
+    name:            m.name,
+    english_name:    m.english_name,
+    scientific_name: m.scientific_name,
+    category:        m.category,
+    order_name:      m.order_name,
+    family:          m.family,
+    genus:           m.genus,
+    rarity:          m.rarity,
+    popularity:      m.popularity,
+    photo_ease:      m.photo_ease,
+    memo:            m.memo,
+    first_seen:      firstSeen ?? null,
+  }).select("id").single();
+  throwIf(error);
+  return data.id;
+}
+
+/** マスターのサムネイル更新（管理者のみRLSで許可される） */
+export async function updateMasterThumbnail(masterId, thumbnailUrl, attribution = null) {
+  const { error } = await supabase.from("fish_master")
+    .update({ thumbnail_url: thumbnailUrl, thumb_attribution: attribution })
+    .eq("id", masterId);
+  throwIf(error);
+}
+
+export async function uploadMasterThumb(masterId, file) {
+  const ext  = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `master/${masterId}.${ext}`;
+  const { error } = await supabase.storage.from("fish-thumbs").upload(path, file, {
+    contentType: file.type || "image/jpeg", upsert: true,
+  });
+  throwIf(error);
+  return "storage:" + path;
+}
+
 // ── セッション総評 ──────────────────────────────────
 
 export async function listReviews() {
