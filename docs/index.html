@@ -4,10 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dive Log Book</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Dive Log">
+  <meta name="theme-color" content="#03111f">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/logbook.css">
+  <link rel="stylesheet" href="./css/themes.css">
   <style>
     /* ── cover card ── */
     .cover-card {
@@ -197,6 +205,49 @@
       letter-spacing: inherit; text-decoration: underline;
     }
 
+    /* ── テーマ選択 ── */
+    .theme-overlay {
+      position: fixed; inset: 0;
+      background: rgba(5,15,25,0.75);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 300; padding: 1.5rem;
+    }
+    .theme-overlay[hidden] { display: none; }
+    .theme-panel {
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+      padding: 1.6rem;
+      width: 100%; max-width: 420px;
+    }
+    .theme-panel-title {
+      font-family: 'Special Elite', monospace;
+      font-size: 0.75rem; letter-spacing: 0.3em;
+      color: var(--ink-faint); text-transform: uppercase;
+      text-align: center; margin-bottom: 1rem;
+    }
+    .theme-swatches { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+    .theme-swatch {
+      border: 2px solid var(--paper-d); border-radius: 2px;
+      background: none; cursor: pointer; padding: 0;
+      overflow: hidden; text-align: left;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .theme-swatch:hover { transform: translateY(-2px); }
+    .theme-swatch.active { border-color: var(--accent); }
+    .theme-swatch-preview { height: 56px; }
+    .theme-swatch-body { padding: 0.5rem 0.7rem; }
+    .theme-swatch-name { font-weight: 700; font-size: 0.95rem; color: var(--ink); }
+    .theme-swatch-desc { font-size: 0.7rem; color: var(--ink-faint); font-family: 'Special Elite', monospace; }
+    .theme-swatch .checkmark { float: right; color: var(--accent); font-size: 0.9rem; }
+    .theme-close {
+      width: 100%; margin-top: 1rem;
+      background: none; border: 1px solid var(--paper-d); border-radius: 2px;
+      font-family: 'Special Elite', monospace; font-size: 0.8rem;
+      letter-spacing: 0.1em; color: var(--ink-fade);
+      padding: 8px; cursor: pointer;
+    }
+
     @media (max-width: 600px) {
       .cover-inner { padding: 2rem 1.5rem; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -247,6 +298,19 @@
         <div class="nav-card-en">Share</div>
         <div class="nav-card-ja" id="share-label">公開リンクを取得</div>
       </a>
+      <a href="#" class="nav-card" id="btn-theme">
+        <div class="nav-card-en">Theme</div>
+        <div class="nav-card-ja">テーマ</div>
+      </a>
+    </div>
+
+    <!-- テーマ選択オーバーレイ -->
+    <div class="theme-overlay" id="theme-overlay" hidden>
+      <div class="theme-panel">
+        <div class="theme-panel-title">── Theme ──</div>
+        <div class="theme-swatches" id="theme-swatches"></div>
+        <button type="button" class="theme-close" id="theme-close">閉じる</button>
+      </div>
     </div>
 
     <!-- セッション一覧 -->
@@ -264,9 +328,38 @@
   import { listDives, listFish, listPhotos, signedPhotoUrls, getOrCreateShareToken } from "./js/api.js";
   import { initSea } from "./js/sea.js";
   import { esc } from "./js/ui.js";
+  import { THEMES, applyUserTheme, saveTheme } from "./js/theme.js";
 
   initSea();
   const user = await requireAuth();
+  let currentTheme = await applyUserTheme();
+
+  // ── テーマ選択 ──
+  const themeOverlay = document.getElementById("theme-overlay");
+  function renderSwatches() {
+    document.getElementById("theme-swatches").innerHTML = Object.entries(THEMES).map(([key, t]) => `
+      <button type="button" class="theme-swatch${key === currentTheme ? " active" : ""}" data-theme-key="${key}">
+        <div class="theme-swatch-preview" style="background:${t.preview}"></div>
+        <div class="theme-swatch-body">
+          <div class="theme-swatch-name">${t.label}${key === currentTheme ? '<span class="checkmark">✓</span>' : ""}</div>
+          <div class="theme-swatch-desc">${t.desc}</div>
+        </div>
+      </button>`).join("");
+  }
+  document.getElementById("btn-theme").addEventListener("click", e => {
+    e.preventDefault();
+    renderSwatches();
+    themeOverlay.hidden = false;
+  });
+  document.getElementById("theme-close").addEventListener("click", () => { themeOverlay.hidden = true; });
+  themeOverlay.addEventListener("click", e => { if (e.target === themeOverlay) themeOverlay.hidden = true; });
+  document.getElementById("theme-swatches").addEventListener("click", async e => {
+    const btn = e.target.closest("[data-theme-key]");
+    if (!btn) return;
+    currentTheme = btn.dataset.themeKey;
+    renderSwatches();
+    try { await saveTheme(currentTheme); } catch (err) { alert("テーマの保存に失敗: " + err.message); }
+  });
   document.getElementById("user-email").textContent = user.email;
   document.getElementById("user-note").hidden = false;
   document.getElementById("btn-logout").addEventListener("click", signOut);

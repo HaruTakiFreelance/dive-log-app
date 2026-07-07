@@ -1,0 +1,37 @@
+/* テーマプリセット（body[data-theme] でCSS変数を上書き）
+   すべて暗色背景ベースなので、白系オーバーレイ文字はそのまま機能する。 */
+
+/* 深海（クラシック / デフォルト）: logbook.css の :root がそのまま適用される */
+
+/* 墨 — モダンな墨色 × ゴシック */
+body[data-theme="ink"] {
+  --bg-gradient: linear-gradient(180deg, #0b0b0e 0%, #16161c 55%, #1e1e26 100%);
+  --font-body: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  --paper:     #f2f0eb;
+  --paper-d:   #dcd8cf;
+  --accent:    #4a5568;
+  --accent-d:  #2d3748;
+  --rust:      #6b3030;
+}
+
+/* 夕凪 — 夕暮れの海 × 明朝 */
+body[data-theme="sunset"] {
+  --bg-gradient: linear-gradient(180deg, #1a0f2e 0%, #45203f 45%, #8a4038 100%);
+  --font-body: "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --paper:     #f6ecdd;
+  --paper-d:   #e8d5bc;
+  --accent:    #a4553d;
+  --accent-d:  #7d3a28;
+  --rust:      #8a3a5a;
+}
+
+/* 南国 — エメラルドの海 × 丸ゴシック */
+body[data-theme="tropical"] {
+  --bg-gradient: linear-gradient(180deg, #01262b 0%, #02444a 50%, #056059 100%);
+  --font-body: "Hiragino Maru Gothic ProN", "Noto Sans JP", sans-serif;
+  --paper:     #f3f1e4;
+  --paper-d:   #dfdcc4;
+  --accent:    #0e7d6d;
+  --accent-d:  #085548;
+  --rust:      #b06a2a;
+}
