@@ -178,6 +178,24 @@ export async function updateMasterThumbnail(masterId, thumbnailUrl, attribution 
   throwIf(error);
 }
 
+/** マスター図鑑の全項目更新（管理者のみRLSで許可される） */
+export async function updateFishMaster(masterId, patch) {
+  const { error } = await supabase.from("fish_master").update(patch).eq("id", masterId);
+  throwIf(error);
+}
+
+export async function deleteFishMaster(masterId) {
+  const { error } = await supabase.from("fish_master").delete().eq("id", masterId);
+  throwIf(error);
+}
+
+/** メンバー統計（管理者のみ。RPCが非管理者にはnullを返す） */
+export async function adminMemberStats() {
+  const { data, error } = await supabase.rpc("admin_member_stats");
+  throwIf(error);
+  return data;
+}
+
 export async function uploadMasterThumb(masterId, file) {
   const ext  = (file.name.split(".").pop() || "jpg").toLowerCase();
   const path = `master/${masterId}.${ext}`;

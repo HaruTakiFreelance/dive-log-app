@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🤿 Dive Log — マスター図鑑編集</title>
+  <link rel="manifest" href="../manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#03111f">
+  <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="./index.html" class="logo">🤿 Dive Log</a>
+  </header>
+
+  <main class="container" style="max-width: 680px;">
+    <div class="card">
+      <a href="./index.html" style="font-size:.85rem; color:var(--sub); text-decoration:none;">← 管理メニューに戻る</a>
+      <h2 class="card-title" style="margin-top:12px;">📚 マスター図鑑を編集</h2>
+      <p class="card-sub">全メンバー共通のマスターデータを修正します（スクレイプミスの訂正・エントリ追加/削除）</p>
+
+      <div id="alert-area"></div>
+
+      <div class="field" style="margin-bottom:10px;">
+        <input type="search" id="search" placeholder="魚名・科・学名で検索...">
+      </div>
+      <button type="button" class="btn btn-secondary btn-full" id="btn-new" style="margin-bottom:14px;">＋ 新しい種をマスターに追加</button>
+      <div id="result-list"></div>
+    </div>
+
+    <!-- 編集フォーム -->
+    <div class="card" id="edit-card" hidden>
+      <h3 class="card-title" id="edit-title" style="font-size:1.05rem;">編集</h3>
+      <div class="form">
+        <div class="field"><label>和名 *</label><input type="text" id="e-name"></div>
+        <div class="field-row">
+          <div class="field"><label>英名</label><input type="text" id="e-en"></div>
+          <div class="field"><label>学名</label><input type="text" id="e-sci"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>分類</label>
+            <select id="e-category">
+              <option>魚類</option><option>甲殻類</option><option>軟体動物</option>
+              <option>棘皮動物</option><option>爬虫類</option><option>哺乳類</option><option>その他</option>
+            </select>
+          </div>
+          <div class="field"><label>科</label><input type="text" id="e-family"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>目</label><input type="text" id="e-order"></div>
+          <div class="field"><label>属</label><input type="text" id="e-genus"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>レア度</label><input type="text" id="e-rarity" placeholder="★★★☆☆"></div>
+          <div class="field"><label>人気</label><input type="text" id="e-popularity" placeholder="★★★☆☆"></div>
+        </div>
+        <div class="field"><label>撮りやすさ</label><input type="text" id="e-photoease" placeholder="★★★☆☆"></div>
+        <div class="field"><label>メモ（生息・分布）</label><textarea id="e-memo" rows="3"></textarea></div>
+        <div class="field"><label>画像URL（storage:master/... または外部URL）</label><input type="text" id="e-thumb"></div>
+        <div class="field"><label>画像クレジット</label><input type="text" id="e-attr" placeholder="(c) Photographer (CC BY-NC)"></div>
+
+        <div class="btn-group">
+          <button type="button" class="btn btn-secondary" id="btn-cancel">キャンセル</button>
+          <button type="button" class="btn btn-primary" id="btn-save">保存</button>
+        </div>
+        <button type="button" class="btn btn-full" id="btn-delete" style="background:#fff5f5; color:var(--danger); border:1px solid #fed7d7; margin-top:6px;" hidden>
+          🗑 このエントリをマスターから削除
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <style>
+    .result-item {
+      display: flex; justify-content: space-between; align-items: center;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 10px 14px; margin-bottom: 8px; cursor: pointer;
+    }
+    .result-item:hover { background: var(--bg); }
+    .result-name { font-weight: 700; }
+    .result-sub { font-size: .75rem; color: var(--sub); }
+  </style>
+
+  <script type="module">
+    import { requireAuth, supabase } from "../js/supabaseClient.js";
+    import { updateFishMaster, deleteFishMaster } from "../js/api.js";
+    import { esc, showAlert } from "../js/ui.js";
+
+    const ADMIN_UUID = "f56a560d-37d2-49bb-aaeb-5b03fd79f05b";
+    const user = await requireAuth();
+    if (user.id !== ADMIN_UUID) {
+      document.body.innerHTML = "<p style='padding:2rem'>このページは管理者専用です。</p>";
+      throw new Error("not admin");
+    }
+
+    let current = null;   // 編集中のマスター行（null = 新規作成）
+
+    async function search(q) {
+      const { data, error } = await supabase.from("fish_master")
+        .select("*")
+        .or(`name.ilike.%${q}%,family.ilike.%${q}%,scientific_name.ilike.%${q}%`)
+        .order("name").limit(30);
+      if (error) { showAlert(error.message, "error"); return; }
+      document.getElementById("result-list").innerHTML = data.map((m, i) => `
+        <div class="result-item" data-i="${i}">
+          <div>
+            <div class="result-name">${esc(m.name)}</div>
+            <div class="result-sub">${esc(m.family ?? "")}${m.scientific_name ? " · " + esc(m.scientific_name) : ""}${m.thumbnail_url ? " · 🖼" : ""}</div>
+          </div>
+          <span style="color:var(--sub)">編集 →</span>
+        </div>`).join("") || "<p style='color:var(--sub);font-size:.85rem'>見つかりません</p>";
+      window.__results = data;
+    }
+
+    let timer;
+    document.getElementById("search").addEventListener("input", e => {
+      clearTimeout(timer);
+      const q = e.target.value.trim();
+      if (!q) { document.getElementById("result-list").innerHTML = ""; return; }
+      timer = setTimeout(() => search(q), 300);
+    });
+
+    document.getElementById("result-list").addEventListener("click", e => {
+      const item = e.target.closest(".result-item");
+      if (item) openEdit(window.__results[+item.dataset.i]);
+    });
+
+    document.getElementById("btn-new").addEventListener("click", () => openEdit(null));
+
+    function openEdit(m) {
+      current = m;
+      document.getElementById("edit-title").textContent = m ? `編集: ${m.name}` : "新しい種を追加";
+      document.getElementById("btn-delete").hidden = !m;
+      const set = (id, v) => document.getElementById(id).value = v ?? "";
+      set("e-name", m?.name); set("e-en", m?.english_name); set("e-sci", m?.scientific_name);
+      document.getElementById("e-category").value = m?.category ?? "魚類";
+      set("e-family", m?.family); set("e-order", m?.order_name); set("e-genus", m?.genus);
+      set("e-rarity", m?.rarity); set("e-popularity", m?.popularity); set("e-photoease", m?.photo_ease);
+      set("e-memo", m?.memo); set("e-thumb", m?.thumbnail_url); set("e-attr", m?.thumb_attribution);
+      document.getElementById("edit-card").hidden = false;
+      document.getElementById("edit-card").scrollIntoView({ behavior: "smooth" });
+    }
+
+    document.getElementById("btn-cancel").addEventListener("click", () => {
+      document.getElementById("edit-card").hidden = true;
+    });
+
+    document.getElementById("btn-save").addEventListener("click", async () => {
+      const g = id => document.getElementById(id).value.trim() || null;
+      const name = g("e-name");
+      if (!name) { showAlert("和名は必須です", "error"); return; }
+      const patch = {
+        name,
+        english_name: g("e-en"), scientific_name: g("e-sci"),
+        category: document.getElementById("e-category").value,
+        family: g("e-family"), order_name: g("e-order"), genus: g("e-genus"),
+        rarity: g("e-rarity"), popularity: g("e-popularity"), photo_ease: g("e-photoease"),
+        memo: g("e-memo"), thumbnail_url: g("e-thumb"), thumb_attribution: g("e-attr"),
+      };
+      const btn = document.getElementById("btn-save");
+      btn.disabled = true; btn.textContent = "保存中...";
+      try {
+        if (current) {
+          await updateFishMaster(current.id, patch);
+        } else {
+          const { error } = await supabase.from("fish_master").insert(patch);
+          if (error) throw new Error(error.message);
+        }
+        showAlert(`✅ ${name} を保存しました`, "success");
+        document.getElementById("edit-card").hidden = true;
+        const q = document.getElementById("search").value.trim();
+        if (q) search(q);
+      } catch (e) {
+        showAlert("保存に失敗: " + e.message, "error");
+      } finally {
+        btn.disabled = false; btn.textContent = "保存";
+      }
+    });
+
+    document.getElementById("btn-delete").addEventListener("click", async () => {
+      if (!current) return;
+      if (!confirm(`「${current.name}」をマスター図鑑から削除しますか？\n（メンバーの個人図鑑エントリは削除されず、紐付けだけ外れます）`)) return;
+      try {
+        await deleteFishMaster(current.id);
+        showAlert(`🗑 ${current.name} を削除しました`, "success");
+        document.getElementById("edit-card").hidden = true;
+        const q = document.getElementById("search").value.trim();
+        if (q) search(q);
+      } catch (e) {
+        showAlert("削除に失敗: " + e.message, "error");
+      }
+    });
+  </script>
+</body>
+</html>

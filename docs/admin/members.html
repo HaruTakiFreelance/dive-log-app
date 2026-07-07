@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🤿 Dive Log — メンバー管理</title>
+  <link rel="manifest" href="../manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="../icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#03111f">
+  <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="./index.html" class="logo">🤿 Dive Log</a>
+  </header>
+
+  <main class="container" style="max-width: 760px;">
+    <div class="card">
+      <a href="./index.html" style="font-size:.85rem; color:var(--sub); text-decoration:none;">← 管理メニューに戻る</a>
+      <h2 class="card-title" style="margin-top:12px;">👥 メンバー管理</h2>
+      <p class="card-sub">登録アカウントの利用状況（内容のプライバシー保護のため件数と日付のみ表示）</p>
+
+      <div id="alert-area"></div>
+      <div id="member-list"></div>
+
+      <p style="font-size:.75rem; color:var(--sub); margin-top:16px;">
+        アカウントの削除・パスワードリセットは
+        <a href="https://supabase.com/dashboard/project/xjtywesdfmbyauifualx/auth/users" target="_blank" rel="noopener">Supabaseダッシュボード</a>
+        から行えます。
+      </p>
+    </div>
+  </main>
+
+  <style>
+    .member-card {
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .member-email { font-weight: 700; font-size: .95rem; word-break: break-all; }
+    .member-badges { display: flex; gap: 6px; margin: 4px 0 10px; flex-wrap: wrap; }
+    .member-badge {
+      font-size: .68rem; padding: 2px 8px; border-radius: 10px;
+      background: var(--chip-bg); color: var(--chip-text);
+    }
+    .member-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 8px; text-align: center;
+    }
+    .member-stat-num { font-weight: 700; font-size: 1.15rem; color: var(--primary); }
+    .member-stat-label { font-size: .65rem; color: var(--sub); }
+    .member-dates { font-size: .72rem; color: var(--sub); margin-top: 8px; }
+    @media (max-width: 480px) { .member-stats { grid-template-columns: repeat(2, 1fr); } }
+  </style>
+
+  <script type="module">
+    import { requireAuth } from "../js/supabaseClient.js";
+    import { adminMemberStats } from "../js/api.js";
+    import { esc, showAlert } from "../js/ui.js";
+
+    const ADMIN_UUID = "f56a560d-37d2-49bb-aaeb-5b03fd79f05b";
+    const user = await requireAuth();
+    if (user.id !== ADMIN_UUID) {
+      document.querySelector(".card").innerHTML = "<p>このページは管理者専用です。</p>";
+      throw new Error("not admin");
+    }
+
+    const fmtDate = iso => iso ? new Date(iso).toLocaleString("ja-JP", {
+      year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
+    }) : "—";
+
+    let members;
+    try {
+      members = await adminMemberStats();
+    } catch (e) {
+      showAlert("読み込みに失敗しました: " + e.message +
+        "（005_admin.sql が未適用の可能性があります）", "error");
+      throw e;
+    }
+
+    document.getElementById("member-list").innerHTML = (members ?? []).map(m => `
+      <div class="member-card">
+        <div class="member-email">${esc(m.email)}</div>
+        <div class="member-badges">
+          ${m.id === ADMIN_UUID ? '<span class="member-badge">👑 管理者</span>' : ""}
+          <span class="member-badge">${esc(m.provider ?? "email")}</span>
+          ${m.has_share_link ? '<span class="member-badge">🔗 公開リンクあり</span>' : ""}
+        </div>
+        <div class="member-stats">
+          <div><div class="member-stat-num">${m.dive_count}</div><div class="member-stat-label">ダイブ</div></div>
+          <div><div class="member-stat-num">${m.fish_count}</div><div class="member-stat-label">図鑑</div></div>
+          <div><div class="member-stat-num">${m.photo_count}</div><div class="member-stat-label">写真</div></div>
+          <div><div class="member-stat-num">${m.review_count}</div><div class="member-stat-label">総評</div></div>
+        </div>
+        <div class="member-dates">
+          登録: ${fmtDate(m.created_at)} ／ 最終ログイン: ${fmtDate(m.last_sign_in_at)}
+          ${m.last_dive_date ? `／ 最終ダイブ: ${esc(m.last_dive_date)}` : ""}
+        </div>
+      </div>`).join("") || "<p>メンバーがいません。</p>";
+  </script>
+</body>
+</html>
