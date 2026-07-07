@@ -15,6 +15,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/logbook.css">
+  <link rel="stylesheet" href="./css/themes.css">
   <style>
     .cover-card {
       background: var(--paper);
@@ -201,6 +202,7 @@
 <script type="module">
   import { fetchSharedLogbook, publicStorageUrl } from "./js/api.js";
   import { initSea } from "./js/sea.js";
+  import { applyPrefs } from "./js/theme.js";
   import { esc } from "./js/ui.js";
 
   initSea();
@@ -211,6 +213,9 @@
 
   const book = await fetchSharedLogbook(token);
   if (!book) { loading.textContent = "— この共有リンクは無効です —"; throw new Error("invalid token"); }
+
+  // オーナーのテーマ（カラー・背景写真・フォント）を反映
+  if (book.prefs) applyPrefs(book.prefs);
 
   const dives = book.dives.sort((a, b) =>
     a.date === b.date ? (a.dive_number || 0) - (b.dive_number || 0) : a.date.localeCompare(b.date));

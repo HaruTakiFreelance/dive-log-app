@@ -71,9 +71,24 @@ export async function applyUserTheme() {
 export async function savePrefs(current, patch) {
   const next = { ...current, ...patch };
   applyPrefs(next);
+
+  // セッション切れ（長時間放置後など）は再ログインへ誘導する
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    alert("ログインの有効期限が切れました。もう一度ログインしてください。");
+    location.href = "./login.html?next=" + encodeURIComponent(location.pathname + location.search);
+    throw new Error("session expired");
+  }
+
   const { error } = await supabase.auth.updateUser({
     data: { theme: next.theme, bg_photo: next.bg_photo, font: next.font },
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (/session/i.test(error.message)) {
+      alert("ログインの有効期限が切れました。もう一度ログインしてください。");
+      location.href = "./login.html?next=" + encodeURIComponent(location.pathname + location.search);
+    }
+    throw new Error(error.message);
+  }
   return next;
 }
