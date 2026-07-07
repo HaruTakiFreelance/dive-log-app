@@ -38,26 +38,42 @@ ALLOWED_LICENSES = {"cc0", "cc-by", "cc-by-nc"}
 DELAY_SEC = 1.0
 
 
+def _cc_photo(photo: dict) -> dict | None:
+    if not photo:
+        return None
+    license_code = (photo.get("license_code") or "").lower()
+    if license_code not in ALLOWED_LICENSES:
+        return None
+    url = photo.get("medium_url") or (photo.get("url") or "").replace("square", "medium")
+    if not url:
+        return None
+    return {"url": url, "attribution": photo.get("attribution") or f"iNaturalist ({license_code})"}
+
+
 def find_inat_photo(scientific_name: str) -> dict | None:
-    """学名からCCライセンス付きの代表写真を探す"""
+    """学名から CCライセンス付きの写真を探す。
+    ① 代表写真がCCならそれを使う ② ダメならその種の写真一覧からCC付きを探す"""
     resp = requests.get(INAT_API, params={
         "q": scientific_name, "rank": "species", "per_page": 3,
     }, timeout=15, headers=HEADERS)
     resp.raise_for_status()
-    for taxon in resp.json().get("results", []):
-        photo = taxon.get("default_photo")
-        if not photo:
-            continue
-        license_code = (photo.get("license_code") or "").lower()
-        if license_code not in ALLOWED_LICENSES:
-            continue
-        url = photo.get("medium_url") or photo.get("url", "").replace("square", "medium")
-        if not url:
-            continue
-        return {
-            "url": url,
-            "attribution": photo.get("attribution") or f"iNaturalist ({license_code})",
-        }
+    results = resp.json().get("results", [])
+
+    for taxon in results:
+        hit = _cc_photo(taxon.get("default_photo"))
+        if hit:
+            return hit
+
+    # 代表写真が使えない場合: 最初の種の写真一覧（最大20枚）からCC付きを探す
+    if results:
+        time.sleep(DELAY_SEC)
+        detail = requests.get(f"{INAT_API}/{results[0]['id']}", timeout=15, headers=HEADERS)
+        detail.raise_for_status()
+        for d in detail.json().get("results", []):
+            for tp in d.get("taxon_photos", []):
+                hit = _cc_photo(tp.get("photo"))
+                if hit:
+                    return hit
     return None
 
 

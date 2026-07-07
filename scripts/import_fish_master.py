@@ -108,7 +108,13 @@ def extract_fish_page(url: str) -> dict:
 
 def backfill_master_ids():
     """既存の個人fish行を正規化名でマスターに紐付ける"""
-    masters = sb.table("fish_master").select("id, name").execute().data
+    masters, offset = [], 0
+    while True:   # supabaseのデフォルト1000件制限があるためページングで全件取得
+        page = sb.table("fish_master").select("id, name").range(offset, offset + 999).execute().data
+        masters.extend(page)
+        if len(page) < 1000:
+            break
+        offset += 1000
     by_name = {m["name"].strip(): m["id"] for m in masters}
 
     fish_rows = sb.table("fish").select("id, name, master_id").is_("master_id", "null").execute().data
